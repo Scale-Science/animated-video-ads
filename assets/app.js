@@ -156,10 +156,18 @@ function renderSetup() {
   return `
     <div class="panel">
       <h3>Project settings</h3>
-      <label>Visual style descriptor (goes into the STYLE block)</label>
-      <textarea id="set-style">${esc(s.styleDescriptor)}</textarea>
-      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic")</label>
-      <textarea id="set-creative" placeholder="e.g. funny claymation with deadpan humor; keep the pacing snappy">${esc(s.creativeDirection || '')}</textarea>
+      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic"). If you upload a style image below, you can just say "claymation just like the image attached". Claude writes the polished STYLE block from this before any images are made.</label>
+      <textarea id="set-creative" placeholder="e.g. claymation just like the image attached, with deadpan humor">${esc(s.creativeDirection || '')}</textarea>
+      <label>Style reference image (optional) — screenshot an animation style you want and it will be shown to Claude when writing the storyboard</label>
+      ${p.references.style ? `
+        <div class="row">
+          <img class="ref-img" ${blobAttr(p.references.style.path)} />
+          <button class="danger small" data-act="del-ref" data-role="style">Remove</button>
+        </div>` : `
+        <div class="row">
+          <input type="file" id="style-file" accept="image/*" style="max-width:280px" />
+          <button class="secondary" data-act="upload-style">Upload style image</button>
+        </div>`}
       <div class="row">
         <div style="flex:1"><label>Brand accent color</label><input id="set-accent" value="${esc(s.brandAccent)}" placeholder="e.g. teal #17b3a6" /></div>
         <div style="flex:1"><label>Background note</label><input id="set-bg" value="${esc(s.backgroundNote)}" placeholder="e.g. faint blueprint grid" /></div>
@@ -387,6 +395,40 @@ function applySceneEdits(sceneId, edits) {
   });
 }
 
+// Downscale to <=1568px long edge and re-encode as JPEG so screenshots stay
+// well under Anthropic's per-image size limits.
+async function normalizeStyleImage(file) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1568 / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+    return blob || file;
+  } catch {
+    return file;
+  }
+}
+
+// Load the project's style reference image from IndexedDB as base64 for the
+// Anthropic vision call. Returns null when no style image is set.
+async function loadStyleImage() {
+  const ref = state.project.references.style;
+  if (!ref) return null;
+  const blob = await db.getBlob(`${state.project.id}:${ref.path}`);
+  if (!blob) return null;
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < buf.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  }
+  return { mediaType: blob.type || 'image/jpeg', dataB64: btoa(bin) };
+}
+
 async function fileToRef(file, role) {
   const pid = state.project.id;
   const ext = (file.name.match(/\.[a-z0-9]+$/i)?.[0] || '.png').toLowerCase();
@@ -436,7 +478,6 @@ function bindEvents(app) {
       },
       'save-settings': () => {
         state.project = store.updateProject(pid, (p) => Object.assign(p.settings, {
-          styleDescriptor: $('#set-style').value,
           creativeDirection: $('#set-creative').value,
           brandAccent: $('#set-accent').value,
           backgroundNote: $('#set-bg').value,
@@ -463,9 +504,23 @@ function bindEvents(app) {
       'del-ref': () => {
         state.project = store.updateProject(pid, (p) => {
           if (btn.dataset.role === 'character') p.references.character = null;
+          else if (btn.dataset.role === 'style') p.references.style = null;
           else p.references.product.splice(Number(btn.dataset.index ?? 0), 1);
         });
         render();
+      },
+      'upload-style': () => {
+        const file = $('#style-file')?.files[0];
+        if (!file) return toast('Choose an image file first');
+        return withBusy('Saving style image', async () => {
+          const blob = await normalizeStyleImage(file);
+          const blobPath = 'references/style.jpg';
+          await db.putBlob(`${pid}:${blobPath}`, blob);
+          db.invalidateUrl(`${pid}:${blobPath}`);
+          state.project = store.updateProject(pid, (p) => {
+            p.references.style = { path: blobPath, addedAt: new Date().toISOString() };
+          });
+        });
       },
       'gen-character': () => {
         const prompt = $('#char-prompt').value.trim(); // read before withBusy re-renders
@@ -487,7 +542,8 @@ function bindEvents(app) {
         const project = store.updateProject(pid, (p) => { p.script = script; });
         state.project = project;
         return withBusy('Generating storyboard with Claude (this can take a minute or two)', async () => {
-          const result = await anthropic.generateStoryboard(project, script, note);
+          const styleImage = await loadStyleImage();
+          const result = await anthropic.generateStoryboard(project, script, note, styleImage);
           state.project = store.updateProject(pid, (p) => {
             p.storyboardMeta = {
               style_block: result.style_block,
@@ -517,7 +573,8 @@ function bindEvents(app) {
         return withBusy(`Regenerating scene ${sceneId}`, async () => {
           const project = store.loadProject(pid);
           const scene = project.scenes.find((s) => s.id === sceneId);
-          const raw = await anthropic.regenerateScene(project, scene, note);
+          const styleImage = await loadStyleImage();
+          const raw = await anthropic.regenerateScene(project, scene, note, styleImage);
           state.project = store.updateProject(pid, (p) => {
             const idx = p.scenes.findIndex((s) => s.id === sceneId);
             const fresh = store.newScene(raw, idx);

@@ -152,10 +152,18 @@ function renderSetup() {
   return `
     <div class="panel">
       <h3>Project settings</h3>
-      <label>Visual style descriptor (goes into the STYLE block)</label>
-      <textarea id="set-style">${esc(s.styleDescriptor)}</textarea>
-      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic")</label>
-      <textarea id="set-creative" placeholder="e.g. funny claymation with deadpan humor; keep the pacing snappy">${esc(s.creativeDirection || '')}</textarea>
+      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic"). If you upload a style image below, you can just say "claymation just like the image attached". Claude writes the polished STYLE block from this before any images are made.</label>
+      <textarea id="set-creative" placeholder="e.g. claymation just like the image attached, with deadpan humor">${esc(s.creativeDirection || '')}</textarea>
+      <label>Style reference image (optional) — screenshot an animation style you want and it will be shown to Claude when writing the storyboard</label>
+      ${p.references.style ? `
+        <div class="row">
+          <img class="ref-img" src="${fileUrl(p.references.style.path)}" />
+          <button class="danger small" data-act="del-ref" data-role="style">Remove</button>
+        </div>` : `
+        <div class="row">
+          <input type="file" id="style-file" accept="image/*" style="max-width:280px" />
+          <button class="secondary" data-act="upload-ref" data-role="style">Upload style image</button>
+        </div>`}
       <div class="row">
         <div style="flex:1"><label>Brand accent color</label><input id="set-accent" value="${esc(s.brandAccent)}" placeholder="e.g. teal #17b3a6" /></div>
         <div style="flex:1"><label>Background note</label><input id="set-bg" value="${esc(s.backgroundNote)}" placeholder="e.g. faint blueprint grid" /></div>
@@ -413,7 +421,6 @@ function bindEvents(app) {
       'save-settings': () => withBusy('Saving settings', async () => {
         state.project = await api('PATCH', `/api/projects/${pid}`, {
           settings: {
-            styleDescriptor: $('#set-style').value,
             creativeDirection: $('#set-creative').value,
             brandAccent: $('#set-accent').value,
             backgroundNote: $('#set-bg').value,
@@ -425,7 +432,7 @@ function bindEvents(app) {
       }),
       'upload-ref': () => {
         const role = btn.dataset.role;
-        const file = (role === 'character' ? $('#char-file') : $('#prod-file'))?.files[0];
+        const file = ({ character: $('#char-file'), style: $('#style-file') }[role] || $('#prod-file'))?.files[0];
         if (!file) return toast('Choose an image file first');
         return withBusy('Uploading reference', async () => {
           const form = new FormData();

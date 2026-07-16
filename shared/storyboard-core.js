@@ -38,7 +38,7 @@ export const storyboardSchema = {
   },
 };
 
-export function buildSystemPrompt({ skill, motion, settings, hasCharacter, hasProduct }) {
+export function buildSystemPrompt({ skill, motion, settings, hasCharacter, hasProduct, hasStyleImage }) {
   const s = settings;
   return `You are the storyboard engine inside a video-ad generation app. Follow the pipeline skill below exactly — it is the source of truth for how prompts must be written.
 
@@ -65,18 +65,19 @@ Other hard rules:
 - Set is_transformation=true (and write an end_frame_prompt) only when the clip contains a real transformation; end_frame_prompt is null otherwise, and end_frame_reference_order is [] when there is no end frame.
 - Write style_block, character_block and product_block once and reuse their text byte-identically inside every prompt.
 
-Project configuration to bake into the STYLE block:
-- Visual style descriptor: ${s.styleDescriptor}
+STYLE DIRECTION — you write the polished style descriptor yourself:
+- Operator's animation style & creative notes (authoritative): ${s.creativeDirection?.trim() || '(none — default to the polished-3D ZackDFilms preset from the skill)'}
+- Style reference image: ${hasStyleImage
+    ? 'attached as the first image in the user message. Study its render look, proportions, materials/texture, color treatment, and lighting feel, and distill them into the style descriptor. If the notes and the image disagree, the image is the visual target and the notes carry the intent and tone.'
+    : 'none attached.'}
+From the notes${hasStyleImage ? ' and the reference image' : ''}, write ONE polished style descriptor sentence in the spirit of the skill's Stage 3 presets (render look, proportions, lighting feel), then build the STYLE block from it. The descriptor and STYLE block must be reused byte-identically in every prompt. The notes also govern tone, humor, pacing, and mood — let that carry into frame descriptions and motion prompts (a funny ad gets comedic staging and timing; a serious one stays restrained). The style reference image is inspiration for the STYLE block text only — it is never attached to image generation, so never refer to it by file number in any prompt.
+
+Other project configuration to bake into the STYLE block:
 - Brand accent color: ${s.brandAccent || '(none specified — use a tasteful neutral accent)'}
 - Background note: ${s.backgroundNote || '(none specified)'}
 - Aspect ratio: ${s.aspectRatio}
 - Character reference available: ${hasCharacter ? 'yes' : 'no — do not use the "character" reference name'}
-- Product reference available: ${hasProduct ? 'yes' : 'no — do not use the "product" reference name'}${s.creativeDirection?.trim() ? `
-
-OPERATOR'S ANIMATION STYLE & CREATIVE NOTES (authoritative):
-${s.creativeDirection.trim()}
-
-Apply these notes to the whole storyboard: they govern the visual style, tone, humor, pacing, and mood of every scene. If they imply a different visual style than the descriptor above (e.g. "funny claymation" vs a polished-3D descriptor), the notes win — write a new style descriptor in the same spirit, following the skill's custom-style guidance, and use it byte-identically in the STYLE block. Let the tone carry into frame descriptions and motion prompts (a funny ad gets comedic staging and timing; a serious one stays restrained).` : ''}`;
+- Product reference available: ${hasProduct ? 'yes' : 'no — do not use the "product" reference name'}`;
 }
 
 export function buildStoryboardUserPrompt(script, note) {

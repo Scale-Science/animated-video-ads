@@ -57,17 +57,20 @@ app.patch('/api/projects/:id', wrap((req, res) => {
 
 app.post('/api/projects/:id/references', upload.single('image'), wrap(async (req, res) => {
   const { id } = req.params;
-  const role = req.body.role; // 'character' | 'product'
-  if (!['character', 'product'].includes(role)) throw new Error('role must be character or product');
+  const role = req.body.role; // 'character' | 'product' | 'style'
+  if (!['character', 'product', 'style'].includes(role)) throw new Error('role must be character, product or style');
   if (!req.file) throw new Error('No image uploaded');
   const ext = path.extname(req.file.originalname || '.png') || '.png';
-  const destName = role === 'character' ? `character${ext}` : `product-${Date.now()}${ext}`;
+  const destName = role === 'product' ? `product-${Date.now()}${ext}` : `${role}${ext}`;
   const dest = path.join(assetDir(id, 'references'), destName);
   fs.renameSync(req.file.path, dest);
-  const url = await uploadFile(dest, `video-gen/${id}`);
+  // The style image only goes to Claude (vision), never to kie.ai generation,
+  // so it needs no hosted URL.
+  const url = role === 'style' ? null : await uploadFile(dest, `video-gen/${id}`);
   const asset = { path: path.relative(projectDir(id), dest), url, uploadedAt: new Date().toISOString() };
   res.json(updateProject(id, (p) => {
     if (role === 'character') p.references.character = asset;
+    else if (role === 'style') p.references.style = asset;
     else p.references.product.push(asset);
   }));
 }));
@@ -76,6 +79,7 @@ app.delete('/api/projects/:id/references/:role/:index?', wrap((req, res) => {
   const { id, role, index } = req.params;
   res.json(updateProject(id, (p) => {
     if (role === 'character') p.references.character = null;
+    else if (role === 'style') p.references.style = null;
     else p.references.product.splice(Number(index ?? 0), 1);
   }));
 }));

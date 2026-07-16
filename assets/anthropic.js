@@ -27,9 +27,18 @@ async function loadSkillFiles() {
   return skillCache;
 }
 
-async function callClaude(system, userContent, schema, onProgress) {
+async function callClaude(system, userText, schema, styleImage, onProgress) {
   const key = getKeys().anthropic;
   if (!key) throw new Error('Anthropic API key is not set — add it under API Keys on the home screen.');
+
+  // Style reference image (if any) goes first, then the text, so the system
+  // prompt's "first image in the user message" reference holds.
+  const content = styleImage
+    ? [
+      { type: 'image', source: { type: 'base64', media_type: styleImage.mediaType, data: styleImage.dataB64 } },
+      { type: 'text', text: userText },
+    ]
+    : userText;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -45,7 +54,7 @@ async function callClaude(system, userContent, schema, onProgress) {
       stream: true,
       thinking: { type: 'adaptive' },
       system,
-      messages: [{ role: 'user', content: userContent }],
+      messages: [{ role: 'user', content }],
       output_config: { format: { type: 'json_schema', schema } },
     }),
   });
@@ -86,21 +95,22 @@ async function callClaude(system, userContent, schema, onProgress) {
   return JSON.parse(text);
 }
 
-function systemPrompt(project, skillFiles) {
+function systemPrompt(project, skillFiles, hasStyleImage) {
   return buildSystemPrompt({
     ...skillFiles,
     settings: project.settings,
     hasCharacter: !!project.references.character,
     hasProduct: project.references.product.length > 0,
+    hasStyleImage,
   });
 }
 
-export async function generateStoryboard(project, script, note, onProgress) {
+export async function generateStoryboard(project, script, note, styleImage, onProgress) {
   const skillFiles = await loadSkillFiles();
-  return callClaude(systemPrompt(project, skillFiles), buildStoryboardUserPrompt(script, note), storyboardSchema, onProgress);
+  return callClaude(systemPrompt(project, skillFiles, !!styleImage), buildStoryboardUserPrompt(script, note), storyboardSchema, styleImage, onProgress);
 }
 
-export async function regenerateScene(project, scene, note, onProgress) {
+export async function regenerateScene(project, scene, note, styleImage, onProgress) {
   const skillFiles = await loadSkillFiles();
-  return callClaude(systemPrompt(project, skillFiles), buildSceneRegenPrompt(project, scene, note), sceneSchema, onProgress);
+  return callClaude(systemPrompt(project, skillFiles, !!styleImage), buildSceneRegenPrompt(project, scene, note), sceneSchema, styleImage, onProgress);
 }
