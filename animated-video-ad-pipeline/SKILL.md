@@ -52,6 +52,15 @@ breaking either one is the most common way these ads drift:
    the operator attaches them in the right order. The number in the prompt text must match the number in
    the list.
 
+3. **Reference the file, never describe the subject.** Once a character or product has a reference image,
+   do not write out its physical attributes in a scene prompt. Point at the file: "the character from
+   file 1", "same product as file 2". Describing the subject in prose (its shape, color, size, texture) is
+   the single most common cause of drift, because the model generates from your words instead of from the
+   locked reference, and your words are never a perfect match. If you catch yourself writing what the
+   product looks like, stop and replace it with a file reference. The only exception is the one-time prompt
+   that creates a reference from scratch (see Stage 3), where a description is unavoidable because there is
+   nothing to attach yet.
+
 ### Standard file order
 
 Default order when a scene has the recurring character and the product:
@@ -168,30 +177,43 @@ the lighting feel, then reuse it verbatim.
 
 ### Write the reference blocks
 
+Three blocks get pasted into image prompts. The STYLE block is text and appears in full every time. The
+CHARACTER and PRODUCT blocks are pure file references and carry no physical description, because the look
+of the character and product is supplied by the attached reference images, not by words. See rule 3 in the
+core convention: describing the subject in a scene prompt is what causes drift.
+
 **STYLE block** (paste into every image prompt). Drop in the chosen style descriptor and keep the technical
 constraints as-is:
 > [chosen style descriptor]. Background is a soft [brand] gradient [plus any style-specific backdrop, for
 > example the blueprint grid on the ZackDFilms look]. Muted clean palette with [brand accent] accents.
 > Vertical 9:16. No text, no watermark. Single static frame, no motion blur, no camera-movement cues.
 
-**CHARACTER block** (referenced as a file, never by name):
-> The character from file 1: [physical description locked once and never changed].
+**CHARACTER block** (reference only, never described):
+> The character from file 1.
 
-**PRODUCT block** (referenced as a file):
-> Same product as file 2: [precise physical description: geometry, color, texture, packaging text].
+**PRODUCT block** (reference only, never described):
+> Same product as file 2.
 
-Write the style descriptor and the physical descriptions in full the first time, then keep them
-byte-identical across every prompt. The chosen style descriptor is part of that fixed text; varying its
-wording between prompts invites the render to drift.
+The STYLE descriptor is the one piece of text that must stay byte-identical across every prompt; varying
+its wording invites the render to drift. The character and product are held constant by attaching the same
+reference images every time, not by repeating a description. Do not write out the product's geometry,
+color, size, texture, or packaging in a scene or end-frame prompt. If a beat needs the product to look a
+certain way, that belongs in the locked reference image, not in the prompt text.
 
 ### Reference-lock workflow (do this before mass-generating)
 
-1. Generate one clean, single-subject character frame first (a plain shot with a neutral expression).
-   Approve it. That image becomes **file 1** for every scene the character appears in.
-2. Lock one good product render the same way. It becomes the product reference (**file 2** in standard
-   order).
-3. From then on, every character or product scene attaches those locked images. This is what keeps the
-   face and the product from changing across dozens of generations.
+The only place a full physical description is written is the one-time prompt that creates a reference from
+scratch, because at that moment there is nothing to attach yet.
+
+1. **Product reference:** normally this is an uploaded product photo, so no description is needed at all;
+   the photo is the reference. Lock it as **file 2**.
+2. **Character reference:** if the character is uploaded, lock that image as **file 1** with no description.
+   If the character must be generated, write one prompt that describes them in full (this is the single
+   allowed description), generate a clean single-subject frame with a neutral expression, approve it, and
+   lock that image as **file 1**. Never repeat that description in later prompts.
+3. From then on, every character or product scene attaches those locked images and refers to them only as
+   file 1 and file 2. This is what keeps the face and the product from changing across dozens of
+   generations.
 
 ---
 
@@ -207,6 +229,9 @@ Rules for starting-frame (and all still) prompts:
 - Lead with the STYLE block, then the CHARACTER and/or PRODUCT blocks as needed, then the frame-specific
   description.
 - Refer to any recurring subject as "the character from file 1" / "same product as file 2", never by name.
+- The frame description covers action, composition, expression, and lighting continuity. It does not
+  describe the physical attributes of the character or product; those come from the attached files. Writing
+  "a small off-white pillow-shaped gum" instead of "same product as file 2" is the drift trap from rule 3.
 - If the frame must match an object shown in an earlier generated frame, attach that image and say "same
   [object] as file [N]".
 - End every prompt with a **Files to attach** list.
@@ -235,24 +260,51 @@ surface repairing, ingredients merging, a color shift), give it both frames so t
 - **Attach the clip's own starting frame as file 1** and describe only what changed, using "same [subject]
   as file 1". Keep pose, camera framing, and lighting matched to the start frame so only the intended thing
   moves.
-- Close with a short "what changed from the start frame" note so the interpolation reads as one clean
-  action rather than a scene cut.
-- Same rules as Stage 4: no camera movement, Files-to-attach list, reference by file number.
+- **If the transformation resolves into the product or another referenced subject, reference that file, do
+  not describe it.** A clip where scattered elements merge into the product should end on "same product as
+  file 2", never on a prose description of the product. This is the exact spot the drift trap shows up, so
+  attach the product as a second reference and point at it.
+- Close with a short "what changed" note so the interpolation reads as one clean action rather than a
+  scene cut.
+- Same rules as Stage 4: no camera movement, Files-to-attach list, reference by file number, no describing
+  the physical attributes of any referenced subject.
 
 **Ending-frame prompt template:**
 ```
 [STYLE block]
 [CHARACTER / PRODUCT blocks as needed]
 
-Frame description: Same [subject] as file 1, now [resolved state]. [Only the differences from the
-starting frame.]
+Frame description: Same [subject] as file 1, now [resolved state]. If it resolves into another referenced
+subject, name that file, e.g. "now merged into a single unit that matches file 2". [Only the differences
+from the starting frame: composition and lighting, not physical attributes.]
 
-What changed from the start frame: [one line, so the first-to-last interpolation is a clean single action]
+What changed from file 1: [one line, so the first-to-last interpolation is a clean single action]
 
 Files to attach:
 - file 1 = the generated starting-frame image of this clip
-- file 2 = [product or other reference, if present]
+- file 2 = [product or other reference, if the resolved state must match one]
 ```
+
+**Worked example (the ingredients-merge beat done right).** A clip where four floating ingredients merge
+into the product:
+
+> [STYLE block]
+> The character from file 1.
+> Same product as file 2.
+>
+> Frame description: Same scene as file 1, the four floating ingredient elements now merged into a single
+> piece that matches file 2, resting in the character's open palm, centered with a soft rim light. Same
+> framing and lighting as file 1.
+>
+> What changed from file 1: the four converging elements have fused into one piece that matches file 2.
+>
+> Files to attach:
+> - file 1 = this clip's starting frame (the four floating ingredients)
+> - file 2 = the product reference image
+
+Notice the product is never described. Its geometry, color, and texture live in file 2. Contrast the
+broken version, which wrote "a small off-white pillow-shaped gum, roughly the size of a gum pellet" and so
+generated a product that matched neither the real one nor the other scenes.
 
 Not every clip needs an end frame. Simple beats (a held expression, a static hero shot) animate fine from
 a single frame. Reserve end frames for clips with a real transformation.
@@ -311,6 +363,7 @@ Files to attach:
 - [ ] STYLE / CHARACTER / PRODUCT blocks written once and reused verbatim
 - [ ] Character and product reference images locked before mass generation
 - [ ] Every subject referred to as "file N", never by name
+- [ ] No prompt describes the physical attributes of the character or product; both are referenced by file
 - [ ] Every image prompt ends with a Files-to-attach list that matches the prompt text
 - [ ] Still prompts contain no camera movement; motion prompts contain the camera moves
 - [ ] End frames only where there is a real transformation, attaching the start frame as file 1
