@@ -3,6 +3,8 @@
 import { getKeys } from './store.js';
 
 const API_BASE = 'https://api.kie.ai';
+// The File Upload API lives on a separate host from the generation API.
+const UPLOAD_BASE = 'https://kieai.redpandaai.co';
 export const UPLOAD_TTL_MS = 60 * 60 * 60 * 1000; // uploads expire after ~3 days; refresh at 60h
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -74,7 +76,9 @@ export async function uploadBlob(blob, fileName, uploadPath = 'video-gen') {
   const form = new FormData();
   form.append('file', blob, fileName);
   form.append('uploadPath', uploadPath);
-  const body = await request(`${API_BASE}/api/file-stream-upload`, { method: 'POST', body: form });
+  const body = await request(`${UPLOAD_BASE}/api/file-stream-upload`, { method: 'POST', body: form });
+  // This host reports failures as HTTP 200 with success:false in the body.
+  if (body?.success === false) throw new Error(`kie.ai upload failed: ${body.msg || JSON.stringify(body)}`);
   const url = body?.data?.downloadUrl;
   if (!url) throw new Error(`File upload returned no downloadUrl: ${JSON.stringify(body)}`);
   return url;
