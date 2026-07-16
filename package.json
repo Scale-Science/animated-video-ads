@@ -1,0 +1,21 @@
+{
+  "name": "animated-video-ads",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Human-in-the-loop pipeline: ad script -> storyboard -> frames -> animated clips via kie.ai",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "archiver": "^7.0.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
