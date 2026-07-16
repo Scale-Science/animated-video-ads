@@ -158,6 +158,8 @@ function renderSetup() {
       <h3>Project settings</h3>
       <label>Visual style descriptor (goes into the STYLE block)</label>
       <textarea id="set-style">${esc(s.styleDescriptor)}</textarea>
+      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic")</label>
+      <textarea id="set-creative" placeholder="e.g. funny claymation with deadpan humor; keep the pacing snappy">${esc(s.creativeDirection || '')}</textarea>
       <div class="row">
         <div style="flex:1"><label>Brand accent color</label><input id="set-accent" value="${esc(s.brandAccent)}" placeholder="e.g. teal #17b3a6" /></div>
         <div style="flex:1"><label>Background note</label><input id="set-bg" value="${esc(s.backgroundNote)}" placeholder="e.g. faint blueprint grid" /></div>
@@ -435,6 +437,7 @@ function bindEvents(app) {
       'save-settings': () => {
         state.project = store.updateProject(pid, (p) => Object.assign(p.settings, {
           styleDescriptor: $('#set-style').value,
+          creativeDirection: $('#set-creative').value,
           brandAccent: $('#set-accent').value,
           backgroundNote: $('#set-bg').value,
           aspectRatio: $('#set-ar').value,

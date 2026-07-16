@@ -71,7 +71,12 @@ Project configuration to bake into the STYLE block:
 - Background note: ${s.backgroundNote || '(none specified)'}
 - Aspect ratio: ${s.aspectRatio}
 - Character reference available: ${hasCharacter ? 'yes' : 'no — do not use the "character" reference name'}
-- Product reference available: ${hasProduct ? 'yes' : 'no — do not use the "product" reference name'}`;
+- Product reference available: ${hasProduct ? 'yes' : 'no — do not use the "product" reference name'}${s.creativeDirection?.trim() ? `
+
+OPERATOR'S ANIMATION STYLE & CREATIVE NOTES (authoritative):
+${s.creativeDirection.trim()}
+
+Apply these notes to the whole storyboard: they govern the visual style, tone, humor, pacing, and mood of every scene. If they imply a different visual style than the descriptor above (e.g. "funny claymation" vs a polished-3D descriptor), the notes win — write a new style descriptor in the same spirit, following the skill's custom-style guidance, and use it byte-identically in the STYLE block. Let the tone carry into frame descriptions and motion prompts (a funny ad gets comedic staging and timing; a serious one stays restrained).` : ''}`;
 }
 
 export function buildStoryboardUserPrompt(script, note) {

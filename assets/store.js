@@ -32,6 +32,7 @@ export function createProject({ name, settings = {} }) {
     createdAt: new Date().toISOString(),
     settings: {
       styleDescriptor: 'Polished 3D animated explainer in the style of ZackDFilms. Smooth semi-realistic render, softly stylized proportions, clean detailed skin with subtle freckles, gentle studio lighting with soft shadows, shallow depth of field.',
+      creativeDirection: '',
       brandAccent: '',
       backgroundNote: '',
       aspectRatio: '9:16',
