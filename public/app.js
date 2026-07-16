@@ -378,6 +378,15 @@ function sceneEdits(panel) {
 }
 
 function bindEvents(app) {
+  // Autosave the script textarea on blur so pasted text survives re-renders.
+  app.addEventListener('change', async (e) => {
+    if (e.target.id === 'script' && state.project) {
+      try {
+        state.project = await api('PATCH', `/api/projects/${state.project.id}`, { script: e.target.value });
+      } catch { /* saved again on generate */ }
+    }
+  });
+
   app.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
@@ -389,10 +398,16 @@ function bindEvents(app) {
       'home': async () => { await loadProjects(); state.view = 'home'; state.project = null; render(); },
       'open': () => openProject(btn.dataset.id, 'setup'),
       'tab': () => { state.tab = btn.dataset.tab; render(); },
-      'create-project': () => withBusy('Creating project', async () => {
-        const project = await api('POST', '/api/projects', { name: $('#new-name').value });
-        await openProject(project.id, 'setup');
-      }),
+      'create-project': () => {
+        // Inputs are read BEFORE withBusy — its re-render rebuilds the form
+        // from saved state and would wipe anything unsaved.
+        const name = $('#new-name').value;
+        if (!name.trim()) return toast('Project name is required');
+        return withBusy('Creating project', async () => {
+          const project = await api('POST', '/api/projects', { name });
+          await openProject(project.id, 'setup');
+        });
+      },
       'save-settings': () => withBusy('Saving settings', async () => {
         state.project = await api('PATCH', `/api/projects/${pid}`, {
           settings: {
@@ -405,24 +420,35 @@ function bindEvents(app) {
           },
         });
       }),
-      'upload-ref': () => withBusy('Uploading reference', async () => {
+      'upload-ref': () => {
         const role = btn.dataset.role;
-        const input = role === 'character' ? $('#char-file') : $('#prod-file');
-        if (!input.files[0]) throw new Error('Choose an image file first');
-        const form = new FormData();
-        form.append('role', role);
-        form.append('image', input.files[0]);
-        state.project = await api('POST', `/api/projects/${pid}/references`, form);
-      }),
+        const file = (role === 'character' ? $('#char-file') : $('#prod-file'))?.files[0];
+        if (!file) return toast('Choose an image file first');
+        return withBusy('Uploading reference', async () => {
+          const form = new FormData();
+          form.append('role', role);
+          form.append('image', file);
+          state.project = await api('POST', `/api/projects/${pid}/references`, form);
+        });
+      },
       'del-ref': () => withBusy('Removing reference', async () => {
         state.project = await api('DELETE', `/api/projects/${pid}/references/${btn.dataset.role}/${btn.dataset.index ?? 0}`);
       }),
-      'gen-character': () => withBusy('Generating character (Nano Banana Pro, ~30s)', async () => {
-        state.project = await api('POST', `/api/projects/${pid}/references/character/generate`, { prompt: $('#char-prompt').value });
-      }),
-      'gen-storyboard': () => withBusy('Generating storyboard with Claude (this can take a minute or two)', async () => {
-        state.project = await api('POST', `/api/projects/${pid}/storyboard`, { script: $('#script').value, note: $('#sb-note').value });
-      }),
+      'gen-character': () => {
+        const prompt = $('#char-prompt').value.trim();
+        if (!prompt) return toast('A character prompt is required');
+        return withBusy('Generating character (Nano Banana Pro, ~30s)', async () => {
+          state.project = await api('POST', `/api/projects/${pid}/references/character/generate`, { prompt });
+        });
+      },
+      'gen-storyboard': () => {
+        const script = $('#script').value;
+        const note = $('#sb-note').value;
+        if (!script.trim()) return toast('Paste a script first');
+        return withBusy('Generating storyboard with Claude (this can take a minute or two)', async () => {
+          state.project = await api('POST', `/api/projects/${pid}/storyboard`, { script, note });
+        });
+      },
       'approve-storyboard': () => withBusy('Approving storyboard', async () => {
         state.project = await api('POST', `/api/projects/${pid}/storyboard/approve`);
       }),

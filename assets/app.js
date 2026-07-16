@@ -396,6 +396,13 @@ async function fileToRef(file, role) {
 }
 
 function bindEvents(app) {
+  // Autosave the script textarea on blur so pasted text survives re-renders.
+  app.addEventListener('change', (e) => {
+    if (e.target.id === 'script' && state.project) {
+      state.project = store.updateProject(state.project.id, (p) => { p.script = e.target.value; });
+    }
+  });
+
   app.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
@@ -436,16 +443,20 @@ function bindEvents(app) {
         }));
         toast('Settings saved.');
       },
-      'upload-ref': () => withBusy('Uploading reference', async () => {
+      'upload-ref': () => {
+        // Read inputs BEFORE withBusy — its re-render rebuilds the form and
+        // would wipe the file selection.
         const role = btn.dataset.role;
-        const input = role === 'character' ? $('#char-file') : $('#prod-file');
-        if (!input.files[0]) throw new Error('Choose an image file first');
-        const asset = await fileToRef(input.files[0], role);
-        state.project = store.updateProject(pid, (p) => {
-          if (role === 'character') p.references.character = asset;
-          else p.references.product.push(asset);
+        const file = (role === 'character' ? $('#char-file') : $('#prod-file'))?.files[0];
+        if (!file) return toast('Choose an image file first');
+        return withBusy('Uploading reference', async () => {
+          const asset = await fileToRef(file, role);
+          state.project = store.updateProject(pid, (p) => {
+            if (role === 'character') p.references.character = asset;
+            else p.references.product.push(asset);
+          });
         });
-      }),
+      },
       'del-ref': () => {
         state.project = store.updateProject(pid, (p) => {
           if (btn.dataset.role === 'character') p.references.character = null;
@@ -453,30 +464,38 @@ function bindEvents(app) {
         });
         render();
       },
-      'gen-character': () => withBusy('Generating character (Nano Banana Pro, ~30s)', async () => {
-        const prompt = $('#char-prompt').value;
-        if (!prompt.trim()) throw new Error('A character prompt is required');
-        const { url, path } = await pipeline.generateCharacterImage(pid, prompt.trim());
-        state.project = store.updateProject(pid, (p) => {
-          p.references.character = { path, url, uploadedAt: new Date().toISOString() };
+      'gen-character': () => {
+        const prompt = $('#char-prompt').value.trim(); // read before withBusy re-renders
+        if (!prompt) return toast('A character prompt is required');
+        return withBusy('Generating character (Nano Banana Pro, ~30s)', async () => {
+          const { url, path } = await pipeline.generateCharacterImage(pid, prompt);
+          state.project = store.updateProject(pid, (p) => {
+            p.references.character = { path, url, uploadedAt: new Date().toISOString() };
+          });
         });
-      }),
-      'gen-storyboard': () => withBusy('Generating storyboard with Claude (this can take a minute or two)', async () => {
+      },
+      'gen-storyboard': () => {
+        // Capture the textarea BEFORE withBusy re-renders (the re-render rebuilds
+        // the form from saved state, wiping unsaved text), and persist the script
+        // immediately so it survives any later re-render.
         const script = $('#script').value.trim();
-        if (!script) throw new Error('Paste a script first');
         const note = $('#sb-note').value;
+        if (!script) return toast('Paste a script first');
         const project = store.updateProject(pid, (p) => { p.script = script; });
-        const result = await anthropic.generateStoryboard(project, script, note);
-        state.project = store.updateProject(pid, (p) => {
-          p.storyboardMeta = {
-            style_block: result.style_block,
-            character_block: result.character_block,
-            product_block: result.product_block,
-          };
-          p.scenes = result.scenes.sort((a, b) => a.order - b.order).map((raw, i) => store.newScene(raw, i));
-          p.storyboardStatus = 'draft';
+        state.project = project;
+        return withBusy('Generating storyboard with Claude (this can take a minute or two)', async () => {
+          const result = await anthropic.generateStoryboard(project, script, note);
+          state.project = store.updateProject(pid, (p) => {
+            p.storyboardMeta = {
+              style_block: result.style_block,
+              character_block: result.character_block,
+              product_block: result.product_block,
+            };
+            p.scenes = result.scenes.sort((a, b) => a.order - b.order).map((raw, i) => store.newScene(raw, i));
+            p.storyboardStatus = 'draft';
+          });
         });
-      }),
+      },
       'approve-storyboard': () => {
         state.project = store.updateProject(pid, (p) => {
           if (!p.scenes.length) throw new Error('No storyboard to approve');
