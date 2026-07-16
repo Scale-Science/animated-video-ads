@@ -599,3 +599,4 @@ function bindEvents(app) {
 bindEvents($('#app'));
 state.projects = store.listProjects();
 render();
+window.__appBooted = true;

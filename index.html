@@ -7,7 +7,41 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div id="boot-placeholder" style="color:#9aa3b5;font:14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px">
+      Loading Animated Ad Pipeline…
+      <noscript><div style="color:#ef6461;margin-top:8px">JavaScript is disabled — this app needs it to run.</div></noscript>
+    </div>
+  </div>
+  <script>
+    // Surface boot failures instead of leaving a black screen. app.js sets
+    // window.__appBooted = true after its first render; until then, any script
+    // error or unhandled rejection is shown here.
+    (function () {
+      function showBootError(detail) {
+        if (window.__appBooted) return;
+        var el = document.getElementById('app');
+        el.innerHTML =
+          '<div style="font:14px -apple-system,BlinkMacSystemFont,sans-serif;padding:24px;max-width:720px">' +
+          '<h2 style="color:#ef6461;margin:0 0 8px">The app failed to load</h2>' +
+          '<pre style="white-space:pre-wrap;color:#e6e9f0;background:#1f2330;padding:12px;border-radius:8px">' +
+          String(detail).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>' +
+          '<p style="color:#9aa3b5">Try a hard refresh (Cmd+Shift+R / Ctrl+Shift+R). If it persists, ' +
+          'please report the message above along with your browser name and version.</p></div>';
+      }
+      window.addEventListener('error', function (e) {
+        if (e.target && e.target.tagName === 'SCRIPT') {
+          showBootError('Failed to load script: ' + (e.target.src || '(inline)') +
+            '\nThis is usually a stale cache or an in-progress deploy — hard refresh in a minute.');
+        } else if (e.message) {
+          showBootError(e.message + (e.filename ? '\n' + e.filename + ':' + e.lineno : ''));
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        showBootError(e.reason && (e.reason.stack || e.reason.message) || e.reason);
+      });
+    })();
+  </script>
   <script type="module" src="assets/app.js"></script>
 </body>
 </html>
