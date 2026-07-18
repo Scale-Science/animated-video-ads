@@ -105,9 +105,9 @@ app.post('/api/projects/:id/storyboard', wrap(async (req, res) => {
   res.json(updateProject(id, (p) => {
     p.script = scriptText;
     p.storyboardMeta = {
-      style_block: result.style_block,
-      character_block: result.character_block,
-      product_block: result.product_block,
+      scene_style: result.scene_style,
+      character_rendering: result.character_rendering,
+      tone_notes: result.tone_notes,
     };
     p.scenes = result.scenes
       .sort((a, b) => a.order - b.order)

@@ -3,7 +3,7 @@
 // flow straight into the app's output. Prompt/schema definitions are shared with
 // the static browser app via shared/storyboard-core.js. An optional style
 // reference image (project.references.style) is attached as a vision input so
-// Claude can write the polished STYLE block from it.
+// Claude can write the polished style from it.
 import fs from 'node:fs';
 import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';

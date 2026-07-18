@@ -156,7 +156,7 @@ function renderSetup() {
   return `
     <div class="panel">
       <h3>Project settings</h3>
-      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic"). If you upload a style image below, you can just say "claymation just like the image attached". Claude writes the polished STYLE block from this before any images are made.</label>
+      <label>Animation style &amp; creative notes — tone, mood, genre, anything the storyboard should reflect (e.g. "funny claymation", "serious muppets", "futuristic"). If you upload a style image below, you can just say "claymation just like the image attached". Claude writes the polished style from this before any images are made.</label>
       <textarea id="set-creative" placeholder="e.g. claymation just like the image attached, with deadpan humor">${esc(s.creativeDirection || '')}</textarea>
       <label>Style reference image (optional) — screenshot an animation style you want and it will be shown to Claude when writing the storyboard</label>
       ${p.references.style ? `
@@ -233,8 +233,8 @@ function renderStoryboard() {
       </div>
     </div>
     ${p.storyboardMeta ? `
-    <details class="raw"><summary>Locked STYLE / CHARACTER / PRODUCT blocks</summary>
-      <pre class="blocks">STYLE:\n${esc(p.storyboardMeta.style_block)}\n\nCHARACTER:\n${esc(p.storyboardMeta.character_block || '(none)')}\n\nPRODUCT:\n${esc(p.storyboardMeta.product_block || '(none)')}</pre>
+    <details class="raw"><summary>Locked style &amp; tone (reused across all prompts)</summary>
+      <pre class="blocks">SCENE STYLE:\n${esc(p.storyboardMeta.scene_style ?? p.storyboardMeta.style_block ?? '(none)')}\n\nCHARACTER RENDERING:\n${esc(p.storyboardMeta.character_rendering ?? p.storyboardMeta.character_block ?? '(none)')}\n\nTONE &amp; WORLD NOTES:\n${esc(p.storyboardMeta.tone_notes ?? '(none)')}</pre>
     </details>` : ''}
     ${p.scenes.map(renderSceneEditor).join('')}
   `;
@@ -546,9 +546,9 @@ function bindEvents(app) {
           const result = await anthropic.generateStoryboard(project, script, note, styleImage);
           state.project = store.updateProject(pid, (p) => {
             p.storyboardMeta = {
-              style_block: result.style_block,
-              character_block: result.character_block,
-              product_block: result.product_block,
+              scene_style: result.scene_style,
+              character_rendering: result.character_rendering,
+              tone_notes: result.tone_notes,
             };
             p.scenes = result.scenes.sort((a, b) => a.order - b.order).map((raw, i) => store.newScene(raw, i));
             p.storyboardStatus = 'draft';

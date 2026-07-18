@@ -50,7 +50,7 @@ export function createProject({ name, settings = {} }) {
     references: { character: null, product: [], style: null },
     script: '',
     storyboardStatus: 'empty', // empty | draft | approved
-    storyboardMeta: null,      // { style_block, character_block, product_block }
+    storyboardMeta: null,      // { scene_style, character_rendering, tone_notes }
     scenes: [],
     counters: { imageGens: 0, videoGens: 0 },
   };

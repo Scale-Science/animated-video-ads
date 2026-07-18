@@ -147,58 +147,93 @@ timestamps drive the clip split in Stage 2.
 
 ---
 
-## Stage 3 - Choose the style, then lock the reference blocks
+## Stage 3 - Set the creative direction, then lock the reference blocks
 
-First choose one visual style for the whole ad. Then write the reusable blocks once and paste the relevant
-ones into every image prompt. Consistency comes from reusing identical block text plus attaching identical
-reference images.
+First set the creative direction for the whole ad, then write the reusable blocks once and paste the
+relevant ones into every image prompt. Consistency comes from reusing identical block text plus attaching
+identical reference images.
 
-### Choose a style
+### Set the creative direction
 
-Pick one style and keep it fixed across every frame; do not mix styles within a single ad. Ask the user for
-a preference. If they have none, default to the polished-3D (ZackDFilms) look. Each preset below is a
-one-line **style descriptor** that slots into the STYLE block. Use one as written, or write a custom
-descriptor in the same spirit.
+Creative direction has two parts, and both are project-level: they are set once and applied to every scene.
 
-- **Polished 3D (ZackDFilms):** "Polished 3D animated explainer in the style of ZackDFilms. Smooth
-  semi-realistic render, softly stylized proportions, clean detailed skin with subtle freckles, gentle
-  studio lighting with soft shadows, shallow depth of field." Optional backdrop: a faint blueprint grid.
-- **Claymation / plasticine:** "Handmade claymation look, plasticine texture with subtle fingerprint
-  detail, tactile matte surfaces, stop-motion charm, soft even lighting."
-- **Cel-shaded 2.5D:** "Cel-shaded animation, bold clean outlines, flat color fills with defined shadow
-  boundaries, graphic-novel look with a sense of depth."
-- **Stylized realism:** "Grounded, near-realistic proportions and lighting with slightly heightened color
-  and clean premium surfaces, understated and modern."
-- **Low-poly:** "Low-poly geometric forms, faceted surfaces, flat or simple gradient fills, minimalist and
-  contemporary."
+1. **Render style** (the visual look). Pick one and keep it fixed across every frame; do not mix render
+   styles within a single ad. Each preset below is a one-line **style descriptor** that goes into the
+   Style: line of every prompt. Use one as written, or write a custom descriptor in the same spirit. If the
+   user has no preference, default to the polished-3D (ZackDFilms) look.
 
-For a custom style, write the descriptor as one vivid sentence naming the render look, the proportions, and
-the lighting feel, then reuse it verbatim.
+   When a descriptor bundles a character-rendering clause (how people are rendered in this style, such as
+   "clean detailed skin with subtle freckles" or "glossy porcelain-white skeletons with human eyes"),
+   treat that clause as separable. It belongs in the Style: line only for scenes that actually contain a
+   character, and is dropped for product-only or object-only scenes. See "Write the blocks" below.
 
-### Write the reference blocks
+   - **Polished 3D (ZackDFilms):** "Polished 3D animated explainer in the style of ZackDFilms. Smooth
+     semi-realistic render, softly stylized proportions, clean detailed skin with subtle freckles, gentle
+     studio lighting with soft shadows, shallow depth of field." Optional backdrop: a faint blueprint grid.
+   - **Claymation / plasticine:** "Handmade claymation look, plasticine texture with subtle fingerprint
+     detail, tactile matte surfaces, stop-motion charm, soft even lighting."
+   - **Felt puppets (Muppet-style):** "Soft felt-and-fabric puppet characters, visible stitching and fuzzy
+     texture, hand-crafted set, warm practical lighting, tactile stop-motion-adjacent charm."
+   - **Cel-shaded 2.5D:** "Cel-shaded animation, bold clean outlines, flat color fills with defined shadow
+     boundaries, graphic-novel look with a sense of depth."
+   - **Futuristic / sci-fi 3D:** "Sleek futuristic 3D render, clean high-tech surfaces, cool metallic and
+     glass materials, neon-accent rim lighting, polished sci-fi product-film look."
+   - **Stylized realism:** "Grounded, near-realistic proportions and lighting with slightly heightened
+     color and clean premium surfaces, understated and modern."
+   - **Low-poly:** "Low-poly geometric forms, faceted surfaces, flat or simple gradient fills, minimalist
+     and contemporary."
 
-Three blocks get pasted into image prompts. The STYLE block is text and appears in full every time. The
-CHARACTER and PRODUCT blocks are pure file references and carry no physical description, because the look
-of the character and product is supplied by the attached reference images, not by words. See rule 3 in the
-core convention: describing the subject in a scene prompt is what causes drift.
+   For a custom style, write the descriptor as one vivid sentence naming the render look, the proportions,
+   and the lighting feel, then reuse it verbatim.
 
-**STYLE block** (paste into every image prompt). Drop in the chosen style descriptor and keep the technical
-constraints as-is:
-> [chosen style descriptor]. Background is a soft [brand] gradient [plus any style-specific backdrop, for
-> example the blueprint grid on the ZackDFilms look]. Muted clean palette with [brand accent] accents.
-> Vertical 9:16. No text, no watermark. Single static frame, no motion blur, no camera-movement cues.
+2. **Tone and world notes** (the mood and setting). A short free-form line describing how the ad should
+   feel and where it lives: the humor level, energy, and any world or character framing. Examples: "funny
+   and irreverent," "calm and premium," "serious and cinematic," "playful kids-show energy," "futuristic
+   and sleek." This is separate from the render style; a single render style can carry many tones (a
+   claymation ad can be funny or somber). The user's shorthand often fuses the two, so split it: "funny
+   claymation" becomes render style = claymation, tone = funny. "Serious muppets" becomes render style =
+   felt puppets, tone = serious. "Futuristic" is usually a render-style-plus-world note.
 
-**CHARACTER block** (reference only, never described):
-> The character from file 1.
+**How each part flows into the work:**
+- The **render style descriptor** goes into the Style: line of every prompt, so every frame shares one
+  look (with the character-rendering clause included only when a character is in the scene).
+- The **tone and world notes** guide the storyboard: they shape the character's expression and body
+  language, the situation in each frame description, and the energy of the motion prompts in Stage 6. They
+  are creative direction for the scenes, not text pasted into the Style: line. Keep them in mind on every
+  scene so the whole ad reads with one consistent mood.
 
-**PRODUCT block** (reference only, never described):
-> Same product as file 2.
+### Write the blocks (prompt structure)
 
-The STYLE descriptor is the one piece of text that must stay byte-identical across every prompt; varying
-its wording invites the render to drift. The character and product are held constant by attaching the same
-reference images every time, not by repeating a description. Do not write out the product's geometry,
-color, size, texture, or packaging in a scene or end-frame prompt. If a beat needs the product to look a
-certain way, that belongs in the locked reference image, not in the prompt text.
+Every image prompt has the same shape: the **frame description comes first**, then a **Style:** line, then
+the Files-to-attach list. File references live inside the frame description; there is no separate character
+or product line pasted above the prompt.
+
+**The frame description** says what is in the frame, visualizing the VO line, with file references woven in
+("the character from file 1", "same product as file 2"). It covers action, composition, expression, and
+lighting continuity. It never describes the physical attributes of a referenced subject; those come from
+the attached files (rule 3).
+
+**The Style: line** carries the look. Write the chosen style descriptor in two separable parts:
+
+- **Scene style** (always present): the render look, lighting, background, and palette that apply to every
+  frame, plus the fixed technical constraints. This part stays byte-identical across every prompt.
+- **Character rendering** (present only when a character is in the frame): the clause describing how
+  characters are rendered in this style, for example "characters rendered as glossy porcelain-white
+  skeletons with human eyes and hair". **Omit this clause entirely in any scene with no character.** A
+  product-only or object-only frame should never carry character-rendering language; it just describes the
+  style of the image it needs.
+
+So the Style line reads: scene style, plus the character-rendering clause only if a character is present,
+then the technical tail. Template:
+> Style: [scene style descriptor][, plus the character-rendering clause only if a character is in this
+> frame]. Background is a soft [brand] gradient [plus any style-specific backdrop]. Muted clean palette
+> with [brand accent] accents. Vertical 9:16. No text, no watermark. Single static frame, no motion blur,
+> no camera-movement cues.
+
+The scene-style portion and the technical tail stay identical across prompts; varying their wording invites
+drift. The character-rendering clause is the only movable part: included verbatim when a character is in
+frame, dropped when none is. The character and product themselves are held constant by attaching the same
+reference images every time, never by describing them.
 
 ### Reference-lock workflow (do this before mass-generating)
 
@@ -226,24 +261,29 @@ Rules for starting-frame (and all still) prompts:
 
 - **No camera movement, no motion blur.** These are single still frames. Camera and motion language belong
   only in Stage 6.
-- Lead with the STYLE block, then the CHARACTER and/or PRODUCT blocks as needed, then the frame-specific
-  description.
-- Refer to any recurring subject as "the character from file 1" / "same product as file 2", never by name.
+- **Order: frame description first, then the Style: line, then the Files-to-attach list.** The frame
+  description leads because it is the subject of the image; the style is the treatment applied to it.
+- Weave file references into the frame description ("the character from file 1", "same product as file 2"),
+  never by name. There is no separate character or product line above the prompt.
 - The frame description covers action, composition, expression, and lighting continuity. It does not
   describe the physical attributes of the character or product; those come from the attached files. Writing
   "a small off-white pillow-shaped gum" instead of "same product as file 2" is the drift trap from rule 3.
+- **Drop the character-rendering clause from the Style: line when no character is in the frame.** A
+  product-only or object-only scene gets only the scene style, never "characters rendered as..." language.
 - If the frame must match an object shown in an earlier generated frame, attach that image and say "same
   [object] as file [N]".
 - End every prompt with a **Files to attach** list.
 
 **Starting-frame prompt template:**
 ```
-[STYLE block]
-[CHARACTER block if the character is in frame]
-[PRODUCT block if the product is in frame]
+Frame description: [what is in frame, visualizing this clip's VO line, with file references woven in.
+Composition, focal point, expression, lighting continuity. No physical-attribute description of referenced
+subjects.]
 
-Frame description: [what is in frame, visualizing this clip's VO line. Composition, focal point,
-expression, lighting continuity.]
+Style: [scene style descriptor][, plus the character-rendering clause only if a character is in this
+frame]. Background is a soft [brand] gradient [plus any style-specific backdrop]. Muted clean palette with
+[brand accent] accents. Vertical 9:16. No text, no watermark. Single static frame, no motion blur, no
+camera-movement cues.
 
 Files to attach:
 - file 1 = [character reference, or the prior generated frame this must match]
@@ -266,19 +306,22 @@ surface repairing, ingredients merging, a color shift), give it both frames so t
   attach the product as a second reference and point at it.
 - Close with a short "what changed" note so the interpolation reads as one clean action rather than a
   scene cut.
-- Same rules as Stage 4: no camera movement, Files-to-attach list, reference by file number, no describing
-  the physical attributes of any referenced subject.
+- Same rules as Stage 4: no camera movement, frame description first then the Style: line then Files to
+  attach, reference by file number, no describing the physical attributes of any referenced subject, and
+  drop the character-rendering clause from the Style: line when no character is in the frame.
 
 **Ending-frame prompt template:**
 ```
-[STYLE block]
-[CHARACTER / PRODUCT blocks as needed]
-
 Frame description: Same [subject] as file 1, now [resolved state]. If it resolves into another referenced
 subject, name that file, e.g. "now merged into a single unit that matches file 2". [Only the differences
 from the starting frame: composition and lighting, not physical attributes.]
 
 What changed from file 1: [one line, so the first-to-last interpolation is a clean single action]
+
+Style: [scene style descriptor][, plus the character-rendering clause only if a character is in this
+frame]. Background is a soft [brand] gradient [plus any style-specific backdrop]. Muted clean palette with
+[brand accent] accents. Vertical 9:16. No text, no watermark. Single static frame, no motion blur, no
+camera-movement cues.
 
 Files to attach:
 - file 1 = the generated starting-frame image of this clip
@@ -286,17 +329,17 @@ Files to attach:
 ```
 
 **Worked example (the ingredients-merge beat done right).** A clip where four floating ingredients merge
-into the product:
+into the product, with no character in frame (so the Style: line carries no character-rendering clause):
 
-> [STYLE block]
-> The character from file 1.
-> Same product as file 2.
->
 > Frame description: Same scene as file 1, the four floating ingredient elements now merged into a single
-> piece that matches file 2, resting in the character's open palm, centered with a soft rim light. Same
-> framing and lighting as file 1.
+> piece that matches file 2, resting on a soft pedestal, centered with a soft rim light. Same framing and
+> lighting as file 1.
 >
 > What changed from file 1: the four converging elements have fused into one piece that matches file 2.
+>
+> Style: [scene style descriptor]. Background is a soft [brand] gradient. Muted clean palette with [brand
+> accent] accents. Vertical 9:16. No text, no watermark. Single static frame, no motion blur, no
+> camera-movement cues.
 >
 > Files to attach:
 > - file 1 = this clip's starting frame (the four floating ingredients)
@@ -322,9 +365,11 @@ transformation-clip fallback. The summary below is the short version; the refere
 prompts good. It is bundled inside this skill, so it travels with the skill and does not depend on any
 other skill being installed.
 
-- Prepend a **shared motion/style header** (the STYLE block plus: "Animate from the attached first frame,
-  keeping character and product identical. Vertical 9:16, 30fps, smooth motion with natural ease-in and
-  ease-out, zero jitter. No text, no watermark.").
+- Prepend a **shared motion/style header** (the scene style descriptor plus: "Animate from the attached
+  first frame, keeping character and product identical. Vertical 9:16, 30fps, smooth motion with natural
+  ease-in and ease-out, zero jitter. No text, no watermark."). Motion prompts drive Seedance or Kling from
+  an already-generated frame, so the description-before-style ordering that the still prompts use does not
+  apply here; lead with the style/continuity header as shown.
 - Describe **one continuous beat**: what moves, the camera move (push-in, slow orbit, lateral track, static
   hold with internal motion, etc.), and the duration carried straight from the Stage 2 timing map.
 - Keep the motion achievable from the single starting frame. Do not ask for a scene change that contradicts
@@ -360,10 +405,12 @@ Files to attach:
 - [ ] Script adapted to the product's real mechanism, real proof, real guarantee (no borrowed numbers)
 - [ ] Compliance-safe claim substitutions applied
 - [ ] Clips cut on meaning, 3-5s each, timing map built
-- [ ] STYLE / CHARACTER / PRODUCT blocks written once and reused verbatim
+- [ ] Scene style descriptor written once and reused verbatim; character-rendering clause kept separable
 - [ ] Character and product reference images locked before mass generation
 - [ ] Every subject referred to as "file N", never by name
 - [ ] No prompt describes the physical attributes of the character or product; both are referenced by file
+- [ ] Image prompts lead with the frame description, then a "Style:" line, then the Files-to-attach list
+- [ ] The character-rendering clause appears in the Style: line only when a character is in the frame
 - [ ] Every image prompt ends with a Files-to-attach list that matches the prompt text
 - [ ] Still prompts contain no camera movement; motion prompts contain the camera moves
 - [ ] End frames only where there is a real transformation, attaching the start frame as file 1
