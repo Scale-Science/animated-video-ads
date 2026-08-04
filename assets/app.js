@@ -222,7 +222,7 @@ function renderStoryboard() {
   return `
     <div class="panel">
       <h3>Script ${p.storyboardStatus !== 'empty' ? `<span class="badge ${locked ? 'approved' : 'review'}">${esc(p.storyboardStatus)}</span>` : ''}</h3>
-      <label>Paste the finished, timestamped voiceover script</label>
+      <label>Paste the finished voiceover script — timestamps optional (the storyboard splits it into clips either way; timestamps just make the clip durations exact instead of estimated)</label>
       <textarea id="script" rows="8">${esc(p.script)}</textarea>
       <label>Optional note to the storyboard engine</label>
       <input id="sb-note" placeholder="e.g. keep the opening punchier" />

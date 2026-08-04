@@ -95,7 +95,9 @@ Other project configuration to fold into the scene_style / Style: line:
 }
 
 export function buildStoryboardUserPrompt(script, note) {
-  return `Here is the finished, timestamped voiceover script. Produce the full storyboard (Stages 2, 4, 5 and 6 of the skill: timing map, starting-frame prompts, ending-frame prompts for transformation clips, and motion prompts).
+  return `Here is the finished voiceover script. It may or may not include timestamps. Produce the full storyboard (Stages 2, 4, 5 and 6 of the skill: timing map, starting-frame prompts, ending-frame prompts for transformation clips, and motion prompts).
+
+Timing: split the script into clips on meaning per Stage 2 regardless of whether timestamps are present. If the script has explicit timestamps, use them for each clip's start time and duration. If it does not, estimate them from the natural pace of the lines (about 2.5-3 spoken words per second), keeping every clip in the 3-5 second range; still fill in the start and duration_s fields with your best estimate.
 ${note ? `\nOperator note for this generation: ${note}\n` : ''}
 <script>
 ${script}
