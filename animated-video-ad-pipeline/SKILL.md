@@ -167,9 +167,12 @@ Creative direction has two parts, and both are project-level: they are set once 
    treat that clause as separable. It belongs in the Style: line only for scenes that actually contain a
    character, and is dropped for product-only or object-only scenes. See "Write the blocks" below.
 
-   - **Polished 3D (ZackDFilms):** "Polished 3D animated explainer in the style of ZackDFilms. Smooth
-     semi-realistic render, softly stylized proportions, clean detailed skin with subtle freckles, gentle
-     studio lighting with soft shadows, shallow depth of field." Optional backdrop: a faint blueprint grid.
+   - **Polished 3D (ZackDFilms):** "Polished 3D animated explainer in the style of ZackDFilms.
+     Semi-stylized photoreal CGI with clean textures and soft directional lighting, shot with a shallow
+     depth of field macro-lens look and softly blurred bokeh background. Softly stylized proportions, clean
+     detailed skin with subtle freckles, gentle soft shadows." Optional backdrop: a faint blueprint grid.
+     See "Signature elements of the ZackDFilms style" below for the overlays, cutaways, camera, and
+     continuity that define this look.
    - **Claymation / plasticine:** "Handmade claymation look, plasticine texture with subtle fingerprint
      detail, tactile matte surfaces, stop-motion charm, soft even lighting."
    - **Felt puppets (Muppet-style):** "Soft felt-and-fabric puppet characters, visible stitching and fuzzy
@@ -201,6 +204,33 @@ Creative direction has two parts, and both are project-level: they are set once 
   language, the situation in each frame description, and the energy of the motion prompts in Stage 6. They
   are creative direction for the scenes, not text pasted into the Style: line. Keep them in mind on every
   scene so the whole ad reads with one consistent mood.
+
+### Signature elements of the ZackDFilms style
+
+These apply when the polished-3D (ZackDFilms) style is chosen. The render aesthetic and composition ones
+belong in the still frames (this stage); the camera and pacing ones belong in the motion prompts (Stage 6
+and `references/seedance-motion.md`, which carries the ZackDFilms camera and continuity vocabulary in full).
+
+- **Macro micro-lens framing.** Frame subjects close, as if through a macro lens, with a shallow depth of
+  field and a softly blurred bokeh background. This is the "educational close-up" feel that defines the
+  look. Put it in the frame description as composition ("framed close, macro-lens depth, background softly
+  blurred").
+- **Diagrammatic graphic overlays (optional).** A signature of this style is motion-graphic overlays
+  integrated into the 3D space to explain mechanics: glowing mechanic lines, vector arrows, trajectory arcs
+  and measurement lines pinned in 3D. Non-text graphics (arrows, glowing lines, arcs) are on-brand and can
+  go straight in the frame description. **Caveat:** numeric or worded callouts are text, which collides with
+  the "No text, no watermark" rule in the Style line. If you want measurement callouts with numbers or
+  labels, either relax that rule for the project or add the callouts in post; do not silently contradict
+  the no-text constraint.
+- **Cross-section cutaways (composition).** Frames can cut through environmental geometry to reveal hidden
+  action beneath a surface while keeping the surface visible (for example, a cutaway through a tooth, a
+  material, or the ground). This is a strong mechanism-explainer device; use it on beats where the VO is
+  explaining how something works.
+- **Dynamic camera and fast continuity.** The living, floating macro camera, the whip zooms and rotations,
+  the anticipation-then-burst pacing, and the focal-anchor continuity across cuts are all motion behaviors.
+  They live in the motion prompts and are detailed in `references/seedance-motion.md`. Note them at the
+  storyboard stage so the motion prompts can carry them, but keep them out of the still frames (rule: no
+  camera-movement cues in image prompts).
 
 ### Write the blocks (prompt structure)
 
@@ -289,6 +319,24 @@ Files to attach:
 - file 1 = [character reference, or the prior generated frame this must match]
 - file 2 = [product reference, if present]
 ```
+
+### Continuity across scenes
+
+The ZackDFilms look leans on fast educational cuts, so the clips have to feel like one continuous piece
+rather than a set of unrelated shots. Two practices carry that continuity, and they matter more the shorter
+and faster the cuts are:
+
+- **Focal-anchor continuity.** Keep the hero subject anchored in a consistent screen position across
+  consecutive scenes so the viewer's eye stays locked as the cut lands. If a subject is centered at the end
+  of one beat, start the next beat with it centered too. Write the anchor into the frame description
+  ("subject held centered", "product anchored center-frame") so adjacent frames line up.
+- **Reference chaining.** To hold setting, character, and lighting steady from one scene to the next,
+  attach the previous scene's approved frame as a reference for the next scene (as file 1, with the others
+  shifting after it, per the standard file order). This is the single most effective way to stop the world
+  from drifting between cuts. Use it whenever two consecutive scenes share a subject or location.
+
+When you chain, remember rule 3: you are attaching the previous frame so the model can match it, not
+describing what was in it. Say "same setting as file 1", never re-describe the room or the subject.
 
 ---
 

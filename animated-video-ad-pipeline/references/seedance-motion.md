@@ -2,7 +2,7 @@
 
 Read this at Stage 6 of the pipeline, when turning a locked still frame into a clip. It is a condensed,
 animation-focused cut of the broader Seedance craft. The photorealistic material-science vocabulary is
-deliberately left out, because the look here is one fixed stylized 3D animation and the frame is already
+deliberately left out, because the look here is one fixed chosen animation style and the frame is already
 locked. What matters at this stage is motion, camera, easing, and light behavior, not re-describing
 surfaces the still frame already establishes.
 
@@ -19,9 +19,9 @@ only the style constraints that keep the render on-model.
 
 Order the prompt like this:
 
-1. **Style/continuity header.** The STYLE block from the pipeline, plus: "Animate from the attached first
-   frame, keeping character and product identical. Vertical 9:16, 30fps, smooth motion with natural
-   ease-in and ease-out, zero jitter. No text, no watermark."
+1. **Style/continuity header.** The scene style descriptor from the pipeline, plus: "Animate from the
+   attached first frame, keeping character and product identical. Vertical 9:16, 30fps, smooth motion with
+   natural ease-in and ease-out, zero jitter. No text, no watermark."
 2. **Duration.** In seconds, carried from the Stage 2 timing map. Seedance works best at 2 to 10 seconds
    per clip; these clips sit at 3 to 5s.
 3. **Camera move.** One move per clip. See the vocabulary below.
@@ -54,8 +54,25 @@ speed or feel. Useful moves for this kind of explainer ad:
   choice for a talking or expressive character beat, and for anything where camera drift would fight the
   locked frame.
 
-Always ask for ease-in and ease-out rather than linear motion. Easing is what makes CG camera motion feel
-intentional instead of robotic.
+The moves above are the calm-explainer defaults. The ZackDFilms look adds a more energetic set. Use these
+when the tone calls for it (educational, punchy, high-pace); keep them off for calm, premium ads:
+
+- **Living macro camera (handheld float).** A locked composition given subtle, continuous floating drift
+  and small depth swings, as if shot handheld through a macro lens. Keeps a "still" shot alive without a
+  real move. This is the default ZackDFilms feel for a held beat, in place of a dead-static hold.
+- **Whip zoom or whip rotation.** A fast, energetic push or rotation that snaps toward a focal point (a
+  character's head, an impact point, a key detail), settling quickly. Use it to open a beat with energy or
+  to punch in on the thing the VO just named. One whip per clip; it is the whole move, not a garnish.
+- **Cross-section cutaway reveal.** The camera pushes through or past a surface to reveal hidden action
+  underneath while the surface stays visible (through a tooth, a material, the ground). Pairs with the
+  cross-section framing from the still stage; use it on mechanism beats.
+
+**Pacing matches tone.** Move speed is a tone dial, not a fixed rule. Calm and premium wants slow, gentle
+moves. The ZackDFilms educational style wants quicker moves, whip transitions, and the anticipation-burst
+timing below. Set the speed to the project's tone note rather than defaulting everything to slow.
+
+Always ask for ease-in and ease-out rather than linear motion (even fast moves ease at their ends). Easing
+is what makes CG camera motion feel intentional instead of robotic.
 
 ---
 
@@ -69,6 +86,15 @@ intentional instead of robotic.
 - Glows and light effects should have a life cycle: they build, peak, and fade, rather than flashing on.
   "A soft glow builds around the piece and settles" reads better than "glowing."
 - For particle behavior, give a rough density and speed and a settling point, not just "particles."
+- **Anticipation then burst (ZackDFilms timing).** For a beat with force or reveal, split the motion into a
+  slow, held preparation followed by a sudden rapid action, then a quick settle. "Holds still, then snaps
+  forward and settles" reads with far more energy than one even move. This exaggerated timing is a core
+  part of the ZackDFilms feel; use it on impact, launch, and reveal beats.
+- **Secondary motion.** Have small elements react to the main action: dust, particles, or debris kicking up
+  on an impact, a soft settle of nearby elements, a ripple from a snap. Secondary motion sells the physics
+  and keeps the frame from feeling rigid.
+- **Idle life.** Even on a held beat, give the subject small living motion, a slight breath, a micro-shift,
+  a subtle settle, so it is never frozen. A completely still subject reads as a paused image, not a clip.
 
 ---
 
@@ -91,6 +117,28 @@ The opening clip of the ad has to stop the scroll. Front-load the visual interes
 strongest single image, the boldest motion, the highest contrast. A slow push-in onto a striking hero
 subject, or a quick satisfying transformation, both work. Save the calm, explanatory beats for the middle
 of the ad once attention is earned.
+
+---
+
+## Continuity across cuts
+
+The ZackDFilms style runs on short shots and fast cuts, so the clips have to read as one continuous piece.
+The motion side of that continuity:
+
+- **Focal-anchor continuity.** Keep the hero subject in a consistent screen position from the end of one
+  clip to the start of the next, so the eye stays locked through the cut. If a clip ends with the subject
+  centered, the next should open with it centered. This is the motion-stage partner to the focal-anchor
+  framing set in the still frames.
+- **Match the cut to the voiceover.** Shot lengths should track the VO's pace: a fast, list-like passage
+  wants short punchy clips, a calm explanatory line wants a longer hold. Cut on the beat of the narration,
+  not on a fixed timer.
+- **Whip transitions live in the edit.** A whip pan or zoom that carries from one shot into the next is
+  usually built in post by butting a clip that ends on a whip-out against one that begins on a whip-in,
+  not generated as a single clip. Plan for it by ending and starting the adjacent clips on a matching fast
+  move toward the same side or focal point.
+- **Hold the light and world steady.** Keep lighting direction, color, and background consistent from clip
+  to clip. A shift in key light or background tone across a cut reads as a scene change and breaks the
+  continuous feel.
 
 ---
 
