@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Batch Image Generator</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div style="color:#9aa3b5;font:14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px">
+      Loading…
+      <noscript><div style="color:#ef6461;margin-top:8px">JavaScript is disabled — this page needs it to run.</div></noscript>
+    </div>
+  </div>
+  <script>
+    (function () {
+      function showBootError(detail) {
+        if (window.__appBooted) return;
+        var el = document.getElementById('app');
+        el.innerHTML =
+          '<div style="font:14px -apple-system,BlinkMacSystemFont,sans-serif;padding:24px;max-width:720px">' +
+          '<h2 style="color:#ef6461;margin:0 0 8px">The page failed to load</h2>' +
+          '<pre style="white-space:pre-wrap;color:#e6e9f0;background:#1f2330;padding:12px;border-radius:8px">' +
+          String(detail).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>' +
+          '<p style="color:#9aa3b5">Try a hard refresh (Cmd+Shift+R / Ctrl+Shift+R).</p></div>';
+      }
+      window.addEventListener('error', function (e) {
+        if (e.target && e.target.tagName === 'SCRIPT') showBootError('Failed to load script: ' + (e.target.src || '(inline)'));
+        else if (e.message) showBootError(e.message + (e.filename ? '\n' + e.filename + ':' + e.lineno : ''));
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        showBootError(e.reason && (e.reason.stack || e.reason.message) || e.reason);
+      });
+    })();
+  </script>
+  <script type="module" src="assets/banana.js"></script>
+</body>
+</html>

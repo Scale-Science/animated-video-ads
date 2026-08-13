@@ -88,7 +88,11 @@ const blobAttr = (path) => `data-blob="${esc(`${state.project.id}:${path}`)}"`;
 function renderHome() {
   const keys = store.getKeys();
   return `
-    <h1>Animated Ad Pipeline</h1>
+    <div class="row">
+      <h1 style="margin:0">Animated Ad Pipeline</h1>
+      <span class="spacer"></span>
+      <a href="banana.html"><button class="secondary">🍌 Batch image generator →</button></a>
+    </div>
     <div class="panel keybox">
       <h3>API keys</h3>
       <label>kie.ai API key (images + videos)</label>
