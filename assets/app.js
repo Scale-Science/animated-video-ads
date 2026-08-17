@@ -192,9 +192,13 @@ function renderLibrary() {
   `;
 }
 
+const libLabel = (refId) => state.project.references.find((r) => r.id === refId)?.label || refId;
+const otherRefsOptions = (selfId) => state.project.references.filter((r) => r.id !== selfId)
+  .map((r) => `<option value="${esc(r.id)}">${esc(r.label)} (${esc(r.kind)})</option>`).join('');
+
 function renderRefCard(r) {
-  const p = state.project;
-  const attachable = p.references.filter((x) => x.id !== r.id && x.status === 'approved');
+  // ordered attachments, with legacy charRefIds fallback
+  const atts = r.charAttachments || (r.charRefIds || []).map((refId) => ({ kind: 'ref', refId }));
   return `
     <div class="card">
       <div class="scene-head"><span class="title">${esc(r.label || '(unlabeled)')}</span><span class="muted">${esc(r.kind)}</span>${badge(r.status)}<span class="spacer"></span>
@@ -202,10 +206,21 @@ function renderRefCard(r) {
       </div>
       ${r.path ? `<img ${blobAttr(r.path)} style="aspect-ratio:auto"/>` : '<div class="muted" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--panel2);border-radius:8px">no image yet</div>'}
       ${r.source === 'generated' ? `
-        <details class="raw" ${r.status === 'pending' ? 'open' : ''}><summary>Prompt${attachable.length ? ' & attached references' : ''}</summary>
+        <details class="raw" ${r.status === 'pending' ? 'open' : ''}><summary>Prompt & reference images</summary>
           <textarea data-ref-prompt="${esc(r.id)}">${esc(r.prompt)}</textarea>
-          ${attachable.length ? `<label>Attach references (image_input for this character)</label>
-            <div class="row" style="flex-wrap:wrap">${attachable.map((a) => `<label style="margin:0"><input type="checkbox" data-char-attach="${esc(r.id)}" value="${esc(a.id)}" ${(r.charRefIds || []).includes(a.id) ? 'checked' : ''} style="width:auto"/> ${esc(a.label)}</label>`).join('')}</div>` : ''}
+          <label>Reference images for this character — fed to Nano Banana as file 1, file 2, … Upload a style/product image or attach a library reference; cite them in the prompt as "file 1", "file 2".</label>
+          ${atts.length ? atts.map((a, i) => `
+            <div class="row" style="margin:2px 0">
+              <span class="muted" style="width:48px">file ${i + 1}</span>
+              ${a.kind === 'upload' ? `<img class="ref-img" style="width:44px" ${blobAttr(a.path)}/>` : `<span style="flex:1">${esc(libLabel(a.refId))} <span class="muted">(library)</span></span>`}
+              <span class="spacer"></span>
+              <button class="danger small" data-act="del-char-att" data-id="${esc(r.id)}" data-index="${i}">×</button>
+            </div>`).join('') : '<div class="muted">No reference images attached.</div>'}
+          <div class="row" style="margin-top:4px">
+            <input type="file" accept="image/*" data-char-upfile="${esc(r.id)}" style="max-width:190px"/>
+            <button class="secondary small" data-act="upload-char-att" data-id="${esc(r.id)}">Upload &amp; attach</button>
+            ${state.project.references.some((x) => x.id !== r.id) ? `<select data-char-lib="${esc(r.id)}" style="max-width:200px"><option value="">+ attach a library ref…</option>${otherRefsOptions(r.id)}</select>` : ''}
+          </div>
         </details>
         <div class="row" style="margin-top:6px">
           ${r.status === 'review' ? `<button class="success small" data-act="approve-ref" data-id="${esc(r.id)}">Approve</button>` : ''}
@@ -363,12 +378,15 @@ function persistField(e) {
   else if (t.id === 'set-dur') set((x) => { x.settings.defaultDuration = Number(t.value) || 4; });
   else if (t.id === 'set-sound') set((x) => { x.settings.sound = t.checked; });
   else if (t.dataset.refPrompt) set((x) => { const r = x.references.find((r) => r.id === t.dataset.refPrompt); if (r) r.prompt = t.value; });
-  else if (t.dataset.charAttach) set((x) => {
-    const r = x.references.find((r) => r.id === t.dataset.charAttach); if (!r) return;
-    const setIds = new Set(r.charRefIds || []);
-    if (t.checked) setIds.add(t.value); else setIds.delete(t.value);
-    r.charRefIds = [...setIds];
-  });
+  else if (t.dataset.charLib) {
+    if (!t.value) return;
+    set((x) => {
+      const r = x.references.find((r) => r.id === t.dataset.charLib); if (!r) return;
+      r.charAttachments = r.charAttachments || [];
+      r.charAttachments.push({ kind: 'ref', refId: t.value });
+    });
+    render();
+  }
   else if (t.dataset.scenePrompt) set((x) => { const s = x.scenes.find((s) => s.id === t.dataset.scenePrompt); if (s) s.prompt_body = t.value; });
   else if (t.dataset.mapScene) set((x) => {
     const s = x.scenes.find((s) => s.id === t.dataset.mapScene); if (!s) return;
@@ -434,6 +452,33 @@ function bindEvents(app) {
         if (!label) return toast('Give the character a label');
         if (!prompt) return toast('Paste the character prompt');
         state.project = store.updateProject(pid, (p) => p.references.push(store.newReference({ label, kind: 'character', source: 'generated', prompt })));
+        render();
+      },
+      'upload-char-att': () => {
+        const refId = id;
+        const file = document.querySelector(`[data-char-upfile="${refId}"]`)?.files[0];
+        if (!file) return toast('Choose an image file to attach');
+        return withBusy('Uploading reference image', async () => {
+          const blob = await normalizeImage(file);
+          const attId = `att-${rid()}`;
+          const path = `char-att/${attId}.png`;
+          await db.putBlob(`${pid}:${path}`, blob);
+          db.invalidateUrl(`${pid}:${path}`);
+          const url = await uploadBlob(blob, path.split('/').pop(), `video-gen/${pid}`);
+          state.project = store.updateProject(pid, (p) => {
+            const r = p.references.find((r) => r.id === refId);
+            if (r) { r.charAttachments = r.charAttachments || []; r.charAttachments.push({ kind: 'upload', id: attId, path, url, uploadedAt: new Date().toISOString() }); }
+          });
+        });
+      },
+      'del-char-att': async () => {
+        const refId = id; const index = Number(btn.dataset.index);
+        let removed;
+        state.project = store.updateProject(pid, (p) => {
+          const r = p.references.find((r) => r.id === refId);
+          if (r) { r.charAttachments = r.charAttachments || (r.charRefIds || []).map((x) => ({ kind: 'ref', refId: x })); removed = r.charAttachments.splice(index, 1)[0]; delete r.charRefIds; }
+        });
+        if (removed?.kind === 'upload' && removed.path) { await db.deleteBlob(`${pid}:${removed.path}`); db.invalidateUrl(`${pid}:${removed.path}`); }
         render();
       },
       'gen-characters': () => { const n = pipeline.generateAllReferences(pid); toast(`Submitted ${n} character generation${n === 1 ? '' : 's'}.`); reload(); render(); },

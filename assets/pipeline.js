@@ -79,9 +79,24 @@ export async function generateReference(projectId, refId) {
 
   setRef(projectId, refId, (r) => { r.status = 'generating'; r.error = null; });
   try {
+    // Attached reference images become image_input in file order. Support the
+    // ordered charAttachments list (upload or library ref) plus the legacy
+    // charRefIds field from earlier projects.
+    const atts = ref.charAttachments?.length
+      ? ref.charAttachments
+      : (ref.charRefIds || []).map((r) => ({ kind: 'ref', refId: r }));
     const image_input = [];
-    for (const rid of ref.charRefIds || []) {
-      const url = await resolveRefUrl(projectId, rid);
+    for (const a of atts) {
+      let url = null;
+      if (a.kind === 'ref') {
+        url = await resolveRefUrl(projectId, a.refId);
+      } else if (a.path || a.url) {
+        url = await freshUrl(projectId, a, (p, r) => {
+          const rf = p.references.find((x) => x.id === refId);
+          const at = rf?.charAttachments?.find((x) => x.id === a.id);
+          if (at) { at.url = r.url; at.uploadedAt = r.uploadedAt; }
+        });
+      }
       if (url) image_input.push(url);
     }
     const taskId = await createTask(IMAGE_MODEL, {

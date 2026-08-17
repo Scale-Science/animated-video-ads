@@ -74,14 +74,17 @@ export function updateProject(id, mutate) {
 
 // --- reference library entries ---
 
-export function newReference({ label, kind, source, prompt = '', charRefIds = [] }) {
+export function newReference({ label, kind, source, prompt = '' }) {
   return {
     id: `ref-${rid()}`,
     label: label.trim(),
     kind,                 // 'product' | 'character'
     source,               // 'upload' | 'generated'
     prompt,               // for generated characters
-    charRefIds,           // library refs attached when generating this character (image_input)
+    // Ordered reference images fed to Nano Banana when generating this character
+    // (file 1, file 2, …). Each: { kind: 'upload', id, path, url, uploadedAt }
+    // or { kind: 'ref', refId } for an existing library reference.
+    charAttachments: [],
     // Upload refs are 'approved' immediately (a hosted image exists). Generated
     // refs go pending -> generating -> review -> approved.
     status: source === 'upload' ? 'approved' : 'pending',
