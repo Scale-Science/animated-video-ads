@@ -1,70 +1,62 @@
-# Animated Ad Pipeline
+# Ad Generator
 
-A human-in-the-loop app that turns a pasted video ad script into a set of approved animated video
-clips, using the kie.ai API for image (Nano Banana Pro) and video (Kling 3.0) generation and the
-Anthropic API for the script → storyboard step.
-
-The prompt-writing logic lives in [animated-video-ad-pipeline/SKILL.md](animated-video-ad-pipeline/SKILL.md)
-and [animated-video-ad-pipeline/references/seedance-motion.md](animated-video-ad-pipeline/references/seedance-motion.md).
-Both files are loaded at runtime, so editing the skill changes the app's output — nothing is hardcoded.
+A browser app that turns hand-written prompts into a set of approved animated video clips, using the
+kie.ai API. **The app does not write anything** — you write the script, storyboard, and all the image and
+motion prompts yourself (steps 1–6 of your process) and paste finished prompts in. The app's job is
+generation: manage a labeled library of reference images, attach those references to Nano Banana Pro by
+file number so scene/character/product stay consistent, generate the scene images, animate them with
+Kling 3, and let you approve, regenerate, and download.
 
 ## Use it in the browser (GitHub Pages)
 
 **https://scale-science.github.io/animated-video-ads/**
 
-No install needed. The page runs entirely in your browser and talks to kie.ai and Anthropic
-directly. On first visit, paste your `KIE_API_KEY` and `ANTHROPIC_API_KEY` into the **API keys**
-panel — they are stored only in your browser's localStorage and sent only to kie.ai / Anthropic,
-never to any other server (GitHub Pages is static hosting; there is no backend).
+No install. The page runs entirely in your browser and calls kie.ai directly. On first visit, paste your
+`KIE_API_KEY` into the key panel — it is stored only in your browser's localStorage and sent only to
+kie.ai. Projects and generated media also live in your browser (localStorage + IndexedDB), so come back to
+a project in the same browser and profile. Keep the tab open while generating; reopening a project
+re-attaches to in-flight kie.ai tasks, so nothing paid for is lost.
 
-Things to know about the browser version:
-
-- **Everything lives in your browser.** Projects are saved in localStorage and generated
-  images/clips are cached in IndexedDB. Use the same browser + profile to come back to a project;
-  clearing site data deletes your projects.
-- **Keep the tab open while generating.** Task polling runs in the page. If you close the tab
-  mid-generation, reopening the project re-attaches to in-flight kie.ai tasks — nothing paid for
-  is lost, since task ids are persisted before polling starts.
-- **Export** builds the zip client-side from the cached clips.
-
-## Or run it locally (Node server)
-
-```sh
-npm install
-cp .env.example .env   # fill in KIE_API_KEY and ANTHROPIC_API_KEY
-npm start              # open http://localhost:3000
-```
-
-The local version keeps everything on disk under `projects/` (survives browser data clears, easy
-to back up) and resumes in-flight tasks on server restart. Both versions share the same storyboard
-prompts and schemas via [shared/storyboard-core.js](shared/storyboard-core.js).
+There's also a **🍌 Quick batch generator** (`banana.html`) for firing off a pile of one-off Nano Banana
+prompts without the full project structure.
 
 ## The flow
 
-Each stage is gated on explicit approval — nothing generates until you approve the stage before it.
+Each stage gates the next; nothing generates until you ask.
 
-1. **Setup** — set the visual style, brand accent, aspect ratio; upload (or generate in-app) the
-   locked character reference and product photos. These become the skill's file 1 / file 2 anchors.
-2. **Storyboard** — paste the timestamped VO script. Claude, primed with the two skill files,
-   returns a scene-by-scene storyboard: timing, VO line, starting-frame prompt, motion prompt,
-   ordered reference list, and end-frame prompts for transformation scenes. Edit any field inline,
-   regenerate a single scene (optionally with a note), or regenerate the whole board. Approve to unlock frames.
-3. **Frames** — one click submits every scene's starting frame (Nano Banana Pro, 2K). Transformation
-   scenes also get an end frame, generated after the start frame lands (the skill attaches the start
-   frame as file 1). Approve/regenerate per image or approve all.
-4. **Videos** — unlocks when every frame is approved. Each scene renders on Kling 3.0 (pro mode)
-   with its motion prompt, approved start frame, end frame for transformations, and its duration
-   from the timing map. Sound is off by default (ads are timed to a separate VO). Approve/regenerate per clip.
-5. **Export** — download all approved clips as a zip, named `01-scene-01.mp4`, `02-scene-02.mp4`, …
-   so they drop into an editor in sequence.
+1. **Library** — build a labeled set of reference images, each with a hosted kie.ai URL. Upload product
+   photos (labelled, e.g. "gum piece", "pouch"). Add characters by pasting a character prompt with a label
+   and generating them (regenerate until right, then approve), or upload a finished character image
+   directly. A generated character can itself attach other library references as its `image_input`.
+2. **Scenes** — paste **all** scene prompts into one field. Each prompt starts with a header like
+   `**P1 — Title** *(Speaker: "line")*`. The app splits them into cards, and for each `file N` reference in
+   a prompt it **auto-maps** the file number to a library asset (from a `Files: N = label` line or by
+   matching the label text). You confirm or override each slot from the labeled library — or point a slot
+   at an earlier scene's approved frame for continuity. Edit any prompt inline, then generate all images
+   (Nano Banana Pro, 2K, 9:16). Approve or regenerate each. **The prompt text is sent exactly as written —
+   the app never rewrites it;** it only supplies the ordered reference URLs in `image_input`.
+3. **Videos** — unlocks when every scene image is approved. Paste **all** motion prompts (same P1, P2
+   numbering); the app matches each to its scene by id and flags any mismatch. Set a per-scene or default
+   duration, optionally pick a last frame, then animate each approved frame with Kling 3 (pro, 9:16). Sound
+   is off by default (add your VO in the editor). Approve or regenerate each clip.
+4. **Export** — download all approved clips (and/or images) as a zip, named by scene order so they drop
+   into an editor in sequence.
+
+## The core idea
+
+Attach reference images to Nano Banana and refer to them inside prompts as file 1, file 2, file 3 — never
+by re-describing them. File numbering is **per scene** (there is no fixed "character = file 1"): each scene
+attaches only the references it uses, in the order its prompt cites them. That is what keeps every face and
+the product consistent across dozens of generations.
 
 ## Notes
 
-- **Upload expiry** — kie.ai file uploads are deleted after ~3 days; the app keeps local copies as
-  the source of truth and transparently re-uploads any reference whose URL is older than 60 hours.
-- **Cost visibility** — the header shows running image/video generation counts.
-- **Failure isolation** — a failed scene shows its error on its card and never aborts the batch;
-  retry just that scene.
-- **Repo layout** — `index.html` + `assets/` is the static browser app (served by GitHub Pages);
-  `server/` + `public/` is the local Node app; `shared/` is prompt logic used by both;
-  `animated-video-ad-pipeline/` is the skill (source of truth for prompt style).
+- **kie.ai models**: images via `nano-banana-pro` (2K, 9:16, png); video via `kling-3.0/video` (pro mode).
+  All generation is async — the app polls task status and backs off on 429s. Uploaded reference URLs expire
+  after ~3 days; the app keeps local copies and re-uploads automatically when a URL goes stale.
+- **Failure isolation**: a failed item shows its error on its card and never aborts the batch; retry just
+  that one.
+- **Repo layout**: `index.html` + `assets/` is the browser app (served by GitHub Pages); `banana.html` is
+  the quick batch tool; `animated-video-ad-pipeline/` is the prompt-writing skill (a reference for *you*
+  when writing prompts, not used by the app at runtime). The `server/` + `public/` Node app is the older
+  storyboard-generation flow and is **not** kept in sync with this rewrite.
