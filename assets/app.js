@@ -250,10 +250,16 @@ function renderScenes() {
     </div>
 
     ${p.scenes.length ? `
-    <div class="panel row">
-      <button data-act="gen-images" ${toGenerate ? '' : 'disabled'}>Generate all images</button>
-      <button class="success" data-act="approve-all-images" ${reviewable ? '' : 'disabled'}>Approve all in review</button>
-      ${anyGenerating(p) ? '<span class="busy">⏳ generating — keep this tab open</span>' : ''}
+    <div class="panel">
+      <div class="row">
+        <button data-act="gen-images" ${toGenerate ? '' : 'disabled'}>Generate all images</button>
+        <button class="success" data-act="approve-all-images" ${reviewable ? '' : 'disabled'}>Approve all in review</button>
+        ${anyGenerating(p) ? '<span class="busy">⏳ generating — keep this tab open</span>' : ''}
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span class="muted">Or upload starting images instead of generating — filenames containing P1, P2… auto-match to scenes; others are assigned in filename order:</span>
+        <input type="file" id="bulk-scene-imgs" multiple accept="image/*" style="max-width:260px"/>
+      </div>
     </div>
     <div class="grid">${p.scenes.map(renderSceneCard).join('')}</div>` : ''}
   `;
@@ -268,6 +274,8 @@ function renderSceneCard(s) {
       <div class="row" style="margin-top:6px">
         ${s.image.status === 'review' ? `<button class="success small" data-act="approve-image" data-id="${esc(s.id)}">Approve</button>` : ''}
         <button class="secondary small" data-act="regen-image" data-id="${esc(s.id)}" ${s.image.status === 'generating' ? 'disabled' : ''}>${s.image.path ? 'Regenerate' : 'Generate'}</button>
+        <button class="secondary small" data-act="pick-scene-img" data-id="${esc(s.id)}" ${s.image.status === 'generating' ? 'disabled' : ''}>Upload</button>
+        <input type="file" accept="image/*" data-scene-imgfile="${esc(s.id)}" style="display:none"/>
       </div>
       ${s.image.error ? `<div class="err">${esc(s.image.error)}</div>` : ''}
       <label>Reference mapping</label>
@@ -401,7 +409,12 @@ function persistField(e) {
 }
 
 function bindEvents(app) {
-  app.addEventListener('change', persistField);
+  app.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.dataset && t.dataset.sceneImgfile) { uploadSceneImage(t.dataset.sceneImgfile, t.files[0]); return; }
+    if (t.id === 'bulk-scene-imgs') { bulkUploadSceneImages(t.files); return; }
+    persistField(e);
+  });
 
   app.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
@@ -512,6 +525,7 @@ function bindEvents(app) {
         });
         render();
       },
+      'pick-scene-img': () => { document.querySelector(`[data-scene-imgfile="${id}"]`)?.click(); },
       'gen-images': () => { const n = pipeline.generateAllSceneImages(pid); toast(`Submitted ${n} image generation${n === 1 ? '' : 's'}.`); reload(); render(); },
       'regen-image': () => { pipeline.generateSceneImage(pid, id); reload(); render(); },
       'approve-image': () => { state.project = store.updateProject(pid, (p) => { const s = p.scenes.find((s) => s.id === id); if (s?.image.path) s.image.status = 'approved'; }); render(); },
@@ -547,6 +561,56 @@ function bindEvents(app) {
 
     const handler = actions[act];
     if (handler) { try { await handler(); } catch (err) { toast(String(err.message || err)); } }
+  });
+}
+
+// Store an uploaded image as a scene's starting frame (blob + hosted URL),
+// marked approved so it's immediately usable for video.
+async function storeSceneImage(pid, sceneId, file) {
+  const blob = await normalizeImage(file);
+  const path = `scenes/${sceneId}.png`;
+  await db.putBlob(`${pid}:${path}`, blob);
+  db.invalidateUrl(`${pid}:${path}`);
+  const url = await uploadBlob(blob, `${sceneId}.png`, `video-gen/${pid}`);
+  store.updateProject(pid, (p) => {
+    const s = p.scenes.find((s) => s.id === sceneId);
+    if (s) s.image = { status: 'approved', taskId: null, url, uploadedAt: new Date().toISOString(), path, error: null };
+  });
+}
+
+function uploadSceneImage(sceneId, file) {
+  if (!file) return;
+  const pid = state.project.id;
+  return withBusy(`Uploading image for ${sceneId}`, async () => {
+    await storeSceneImage(pid, sceneId, file);
+    state.project = store.loadProject(pid);
+  });
+}
+
+function bulkUploadSceneImages(fileList) {
+  const files = [...(fileList || [])];
+  if (!files.length) return;
+  const pid = state.project.id;
+  return withBusy(`Uploading ${files.length} image${files.length === 1 ? '' : 's'}`, async () => {
+    const sceneIds = store.loadProject(pid).scenes.map((s) => s.id);
+    const used = new Set();
+    const assignments = [];
+    const leftover = [];
+    // 1) match files whose name contains a scene id (P1, P2, …)
+    for (const f of files) {
+      const m = f.name.match(/\bP(\d+)\b/i) || f.name.match(/P(\d+)/i);
+      const sid = m ? `P${m[1]}` : null;
+      if (sid && sceneIds.includes(sid) && !used.has(sid)) { assignments.push([sid, f]); used.add(sid); }
+      else leftover.push(f);
+    }
+    // 2) assign the rest, in filename order, to scenes that still have none
+    leftover.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const free = sceneIds.filter((id) => !used.has(id));
+    for (let i = 0; i < leftover.length && i < free.length; i++) { assignments.push([free[i], leftover[i]]); used.add(free[i]); }
+    for (const [sid, f] of assignments) await storeSceneImage(pid, sid, f);
+    state.project = store.loadProject(pid);
+    const extra = files.length - assignments.length;
+    toast(`Assigned ${assignments.length} image${assignments.length === 1 ? '' : 's'} to scenes.${extra > 0 ? ` ${extra} extra file${extra === 1 ? '' : 's'} ignored (no free scene).` : ''}`);
   });
 }
 
