@@ -6,7 +6,9 @@
 // Motion prompts use the same P-id headers, one per scene.
 
 // Match a header like  **P1 — Title**  optionally followed by  *(Speaker: "line")*
-const HEADER_RE = /\*\*\s*(P\d+)\b[\s.:—–-]*([^*\n]*?)\s*\*\*\s*(?:\*\(([^)]*)\)\*)?/gi;
+// Anchored to the start of a line so a stray bold "**P2**" mid-prompt is not
+// mistaken for a scene header.
+const HEADER_RE = /^[ \t]*\*\*\s*(P\d+)\b[ \t.:—–-]*([^*\n]*?)\s*\*\*[ \t]*(?:\*\(([^)]*)\)\*)?/gim;
 
 function splitByHeaders(text) {
   const heads = [];
@@ -95,8 +97,17 @@ export function suggestMapping(fileNums, labelMap, sceneMap, references) {
 
 export function parseScenes(text, references = []) {
   const heads = splitByHeaders(text);
-  const ids = new Set(heads.map((h) => h.id));
-  return heads.map((h) => {
+  // Collapse duplicate ids (a doubled paste, or a stray second bold header per
+  // scene) — keep the entry with the longest body per id, first-seen order.
+  const order = [];
+  const byId = new Map();
+  for (const h of heads) {
+    if (!byId.has(h.id)) { order.push(h.id); byId.set(h.id, h); }
+    else if ((h.body || '').length > (byId.get(h.id).body || '').length) byId.set(h.id, h);
+  }
+  const unique = order.map((id) => byId.get(id));
+  const ids = new Set(unique.map((h) => h.id));
+  return unique.map((h) => {
     const { speaker, dialogue } = parseMeta(h.meta);
     const { fileNums, labelMap, sceneMap } = extractFileRefs(h.body);
     const fileMap = suggestMapping(fileNums, labelMap, sceneMap, references).map((slot) => {

@@ -137,7 +137,7 @@ function renderProject() {
 
 // --- reference option list for the mapping / last-frame dropdowns ---
 
-function refOptions(current, { scenes = false, excludeSceneId = null, onlyApprovedScenes = false } = {}) {
+function refOptions(current, { scenes = false, excludeSceneId = null, onlyScenesWithFrame = false } = {}) {
   const p = state.project;
   const opt = (val, label, sel) => `<option value="${esc(val)}" ${sel ? 'selected' : ''}>${esc(label)}</option>`;
   let html = opt('', '— none —', !current);
@@ -145,7 +145,7 @@ function refOptions(current, { scenes = false, excludeSceneId = null, onlyApprov
   if (scenes) {
     for (const s of p.scenes) {
       if (s.id === excludeSceneId) continue;
-      if (onlyApprovedScenes && s.image.status !== 'approved') continue;
+      if (onlyScenesWithFrame && !s.image.path) continue;
       const note = s.image.status === 'approved' ? '' : s.image.path ? ' (draft)' : ' (not generated yet)';
       html += opt(`scene:${s.id}`, `${s.id} frame${note}`, current === `scene:${s.id}`);
     }
@@ -285,14 +285,11 @@ function renderSceneCard(s) {
 
 function renderVideos() {
   const p = state.project;
-  const imagesReady = p.scenes.length > 0 && p.scenes.every((s) => s.image.status === 'approved');
-  if (!imagesReady) {
-    const waiting = p.scenes.filter((s) => s.image.status !== 'approved').map((s) => s.id);
-    return `<div class="panel muted">Videos unlock once every scene image is approved.${p.scenes.length ? ` Waiting on: ${waiting.join(', ') || '—'}` : ' Parse and generate scene images first.'}</div>`;
-  }
+  if (!p.scenes.length) return '<div class="panel muted">Parse scene prompts and generate images first.</div>';
   const reviewable = p.scenes.some((s) => s.video.status === 'review');
-  const toGenerate = p.scenes.some((s) => ['pending', 'failed'].includes(s.video.status) && s.video.motion_prompt.trim());
-  const missing = p.scenes.filter((s) => !s.video.motion_prompt.trim()).map((s) => s.id);
+  const toGenerate = p.scenes.some((s) => ['pending', 'failed'].includes(s.video.status) && s.video.motion_prompt.trim() && s.image.path);
+  const missing = p.scenes.filter((s) => s.image.path && !s.video.motion_prompt.trim()).map((s) => s.id);
+  const noImage = p.scenes.filter((s) => !s.image.path).map((s) => s.id);
   return `
     <div class="panel">
       <h3>Motion prompts</h3>
@@ -300,8 +297,9 @@ function renderVideos() {
       <textarea id="motion-raw" rows="7" placeholder="**P1**&#10;…motion prompt (carry the dialogue line for lip-sync)…&#10;&#10;**P2**&#10;…">${esc(p.motionRaw)}</textarea>
       <div class="row" style="margin-top:8px">
         <button data-act="parse-motion">Parse & match to scenes</button>
-        ${missing.length ? `<span class="err">Missing motion for: ${missing.join(', ')}</span>` : '<span class="muted">every scene has a motion prompt</span>'}
+        ${missing.length ? `<span class="err">Missing motion for: ${missing.join(', ')}</span>` : '<span class="muted">every ready scene has a motion prompt</span>'}
       </div>
+      <div class="notice">A scene's video can be generated as soon as its own image exists — you don't have to wait for every image. "Generate all videos" runs every ready scene (image + motion) and skips the rest.${noImage.length ? ` No image yet: ${noImage.join(', ')}.` : ''}</div>
     </div>
     <div class="panel row">
       <div><label style="margin:0 8px 0 0;display:inline">Default duration (s)</label><input id="set-dur" type="number" min="3" max="15" value="${esc(p.settings.defaultDuration)}" style="width:70px;display:inline-block"/></div>
@@ -316,20 +314,21 @@ function renderVideos() {
 }
 
 function renderVideoCard(s) {
+  const hasImage = !!s.image.path;
   return `
     <div class="card" data-scene-panel="${esc(s.id)}">
-      <div class="scene-head"><span class="title">${esc(s.id)}${s.title ? ' · ' + esc(s.title) : ''}</span>${badge(s.video.status)}<span class="spacer"></span></div>
-      ${s.video.path ? `<video controls ${blobAttr(s.video.path)}></video>` : `<img ${blobAttr(s.image.path)} style="aspect-ratio:auto;opacity:.5"/>`}
+      <div class="scene-head"><span class="title">${esc(s.id)}${s.title ? ' · ' + esc(s.title) : ''}</span>${badge(s.video.status)}<span class="muted">${s.image.status === 'approved' ? '' : hasImage ? 'image draft' : 'no image yet'}</span><span class="spacer"></span></div>
+      ${s.video.path ? `<video controls ${blobAttr(s.video.path)}></video>` : (hasImage ? `<img ${blobAttr(s.image.path)} style="aspect-ratio:auto;opacity:.5"/>` : '<div class="muted" style="aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;background:var(--panel2);border-radius:8px">generate this scene\'s image first</div>')}
       <div class="row" style="margin-top:6px">
         ${s.video.status === 'review' ? `<button class="success small" data-act="approve-video" data-id="${esc(s.id)}">Approve</button>` : ''}
-        <button class="secondary small" data-act="regen-video" data-id="${esc(s.id)}" ${s.video.status === 'generating' ? 'disabled' : ''}>${s.video.path ? 'Regenerate' : 'Generate'}</button>
+        <button class="secondary small" data-act="regen-video" data-id="${esc(s.id)}" ${s.video.status === 'generating' || !hasImage ? 'disabled' : ''}>${s.video.path ? 'Regenerate' : 'Generate'}</button>
       </div>
       ${s.video.error ? `<div class="err">${esc(s.video.error)}</div>` : ''}
       <div class="row" style="margin-top:6px">
         <span class="muted" style="width:52px">length</span>
         <input data-vid-dur="${esc(s.id)}" type="number" min="3" max="15" placeholder="${esc(s.video.duration_s ?? state.project.settings.defaultDuration)}" value="${s.video.duration_s ?? ''}" style="width:70px"/>
         <span class="muted">last frame</span>
-        <select data-vid-last="${esc(s.id)}" style="flex:1">${refOptions(s.video.lastFrameRefId, { scenes: true, excludeSceneId: s.id, onlyApprovedScenes: true })}</select>
+        <select data-vid-last="${esc(s.id)}" style="flex:1">${refOptions(s.video.lastFrameRefId, { scenes: true, excludeSceneId: s.id, onlyScenesWithFrame: true })}</select>
       </div>
       <details class="raw"><summary>Motion prompt${s.dialogue ? ' · "' + esc(s.dialogue) + '"' : ''}</summary><textarea data-motion-prompt="${esc(s.id)}" rows="4" placeholder="paste or edit this scene's motion prompt">${esc(s.video.motion_prompt)}</textarea></details>
     </div>`;

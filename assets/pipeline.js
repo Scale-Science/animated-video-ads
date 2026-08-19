@@ -236,7 +236,7 @@ export async function generateVideo(projectId, sceneId) {
   const project = loadProject(projectId);
   const scene = project.scenes.find((s) => s.id === sceneId);
   if (!scene) throw new Error(`Unknown scene ${sceneId}`);
-  if (scene.image.status !== 'approved') throw new Error(`Scene ${sceneId} image is not approved`);
+  if (!scene.image.path) throw new Error(`Scene ${sceneId} has no generated image yet — generate its image first`);
   if (!scene.video.motion_prompt?.trim()) throw new Error(`Scene ${sceneId} has no motion prompt`);
 
   setScene(projectId, sceneId, (s) => { s.video.status = 'generating'; s.video.error = null; });
@@ -279,13 +279,20 @@ async function attachVideoTask(projectId, sceneId, taskId) {
   }
 }
 
+// Generate videos for every scene that is ready (has a generated image + a
+// motion prompt), regardless of whether OTHER scenes are done. Scenes with no
+// image or no motion are skipped, not blocking the rest.
 export function generateAllVideos(projectId) {
   const project = loadProject(projectId);
-  const notReady = project.scenes.filter((s) => s.image.status !== 'approved');
-  if (notReady.length) throw new Error(`Videos unlock once every scene image is approved. Waiting on: ${notReady.map((s) => s.id).join(', ')}`);
-  const missing = project.scenes.filter((s) => !s.video.motion_prompt?.trim());
-  if (missing.length) throw new Error(`These scenes have no motion prompt: ${missing.map((s) => s.id).join(', ')}`);
-  const todo = project.scenes.filter((s) => ['pending', 'failed'].includes(s.video.status));
+  const todo = project.scenes.filter((s) => s.image.path && s.video.motion_prompt?.trim() && ['pending', 'failed'].includes(s.video.status));
+  if (!todo.length) {
+    const noImg = project.scenes.filter((s) => !s.image.path).map((s) => s.id);
+    const noMotion = project.scenes.filter((s) => s.image.path && !s.video.motion_prompt?.trim()).map((s) => s.id);
+    let msg = 'No scenes are ready for video.';
+    if (noImg.length) msg += ` No image yet: ${noImg.join(', ')}.`;
+    if (noMotion.length) msg += ` No motion prompt: ${noMotion.join(', ')}.`;
+    throw new Error(msg);
+  }
   runPool(todo.map((s) => () => generateVideo(projectId, s.id)));
   return todo.length;
 }
