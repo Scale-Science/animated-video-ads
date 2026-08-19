@@ -39,54 +39,74 @@ function parseMeta(meta) {
   return { speaker, dialogue };
 }
 
-// Every "file N" mention, and any "file N = label" / "Files: N = label" pairs.
+// Extract file references from a prompt body.
+//  - explicit "file N" mentions in the body
+//  - "file N = X" / "Files: N = X" numbered assignments
+//  - unnumbered "Files:" entries (a bare label, or "P2 frame") — auto-numbered
+// A value that looks like a scene ("P2 frame", or exactly "P2") becomes a
+// scene-frame reference; anything else is treated as a library label.
 export function extractFileRefs(body) {
   const nums = new Set();
-  const labelMap = {}; // fileNum -> label text
-  for (const m of body.matchAll(/\bfile\s+(\d+)/gi)) nums.add(Number(m[1]));
-  for (const m of body.matchAll(/\bfile\s+(\d+)\s*=\s*([^\n,;]+)/gi)) {
-    const n = Number(m[1]);
-    labelMap[n] = m[2].trim().replace(/[.\s]+$/, '');
+  const labelMap = {}; // fileNum -> label text (to match against the library)
+  const sceneMap = {}; // fileNum -> "scene:P#"
+
+  const assign = (n, valRaw) => {
     nums.add(n);
-  }
-  // also a compact "Files: 1 = a, 2 = b" line without the word "file" before each number
+    const val = String(valRaw).trim().replace(/[.\s]+$/, '');
+    const p = val.match(/\bP(\d+)\b/i);
+    if (p && (/\bframe\b/i.test(val) || /^P\d+$/i.test(val))) sceneMap[n] = `scene:P${p[1]}`;
+    else labelMap[n] = val;
+  };
+
+  for (const m of body.matchAll(/\bfile\s+(\d+)/gi)) nums.add(Number(m[1]));
+  for (const m of body.matchAll(/\bfile\s+(\d+)\s*=\s*([^\n,;]+)/gi)) assign(Number(m[1]), m[2]);
+
   const filesLine = body.match(/\bFiles?\s*(?:to attach)?\s*:\s*([^\n]+)/i);
   if (filesLine) {
-    for (const m of filesLine[1].matchAll(/(\d+)\s*=\s*([^,;]+)/g)) {
-      const n = Number(m[1]);
-      if (labelMap[n] == null) labelMap[n] = m[2].trim().replace(/[.\s]+$/, '');
-      nums.add(n);
+    const nextAuto = () => { let i = 1; while (nums.has(i)) i += 1; return i; };
+    for (const raw of filesLine[1].split(/[,;]/)) {
+      const tok = raw.replace(/^[\s+•\-–]+/, '').replace(/[.\s]+$/, '').trim(); // strip bullets/trailing dot
+      if (!tok) continue;
+      const eq = tok.match(/^(\d+)\s*=\s*(.+)$/);
+      if (eq) assign(Number(eq[1]), eq[2]);
+      else assign(nextAuto(), tok);
     }
   }
-  return { fileNums: [...nums].sort((a, b) => a - b), labelMap };
+  return { fileNums: [...nums].sort((a, b) => a - b), labelMap, sceneMap };
 }
 
-// Build a suggested [{file, refId}] mapping from label matches against the library.
-export function suggestMapping(fileNums, labelMap, references) {
+// Build a suggested [{file, refId}] mapping. A scene-frame reference maps
+// straight to "scene:P#"; otherwise the label text is matched to the library.
+export function suggestMapping(fileNums, labelMap, sceneMap, references) {
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const libs = references.map((r) => ({ id: r.id, key: norm(r.label) }));
   const matchLabel = (label) => {
     const k = norm(label);
     if (!k) return null;
-    let hit = libs.find((l) => l.key === k);                       // exact
-    if (!hit) hit = libs.find((l) => l.key && (k.includes(l.key) || l.key.includes(k))); // contains
+    let hit = libs.find((l) => l.key === k);
+    if (!hit) hit = libs.find((l) => l.key && (k.includes(l.key) || l.key.includes(k)));
     return hit ? hit.id : null;
   };
-  return fileNums.map((file) => ({ file, refId: labelMap[file] != null ? matchLabel(labelMap[file]) : null }));
+  return fileNums.map((file) => ({
+    file,
+    refId: sceneMap[file] ? sceneMap[file] : (labelMap[file] != null ? matchLabel(labelMap[file]) : null),
+  }));
 }
 
 export function parseScenes(text, references = []) {
-  return splitByHeaders(text).map((h) => {
+  const heads = splitByHeaders(text);
+  const ids = new Set(heads.map((h) => h.id));
+  return heads.map((h) => {
     const { speaker, dialogue } = parseMeta(h.meta);
-    const { fileNums, labelMap } = extractFileRefs(h.body);
-    return {
-      id: h.id,
-      title: h.title,
-      speaker,
-      dialogue,
-      prompt_body: h.body,
-      fileMap: suggestMapping(fileNums, labelMap, references),
-    };
+    const { fileNums, labelMap, sceneMap } = extractFileRefs(h.body);
+    const fileMap = suggestMapping(fileNums, labelMap, sceneMap, references).map((slot) => {
+      // drop a scene reference that doesn't point at an actual parsed scene
+      if (typeof slot.refId === 'string' && slot.refId.startsWith('scene:') && !ids.has(slot.refId.slice(6))) {
+        return { ...slot, refId: null };
+      }
+      return slot;
+    });
+    return { id: h.id, title: h.title, speaker, dialogue, prompt_body: h.body, fileMap };
   });
 }
 
