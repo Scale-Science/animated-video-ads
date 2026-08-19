@@ -38,6 +38,12 @@ async function freshUrl(projectId, holder, setUrl) {
   return url;
 }
 
+function describeRef(project, refId) {
+  if (refId.startsWith('scene:')) return `scene ${refId.slice('scene:'.length)}'s frame`;
+  const r = project.references.find((x) => x.id === refId);
+  return r ? `"${r.label}"` : refId;
+}
+
 // Resolve a fileMap entry's refId to a fresh hosted URL.
 // refId is a library reference id, or "scene:<sceneId>" for a prior scene frame.
 async function resolveRefUrl(projectId, refId) {
@@ -157,8 +163,10 @@ export async function generateSceneImage(projectId, sceneId) {
   try {
     const image_input = [];
     for (const slot of [...scene.fileMap].sort((a, b) => a.file - b.file)) {
+      if (!slot.refId) continue; // unassigned slot — fine
       const url = await resolveRefUrl(projectId, slot.refId);
-      if (url) image_input.push(url);
+      if (!url) throw new Error(`file ${slot.file} points at ${describeRef(project, slot.refId)}, which has no image yet — generate that first`);
+      image_input.push(url);
     }
     const taskId = await createTask(IMAGE_MODEL, {
       prompt: scene.prompt_body,
@@ -189,11 +197,37 @@ async function attachImageTask(projectId, sceneId, taskId) {
   }
 }
 
+// Scene chaining for consistency: a scene whose fileMap points at another
+// scene's frame ("scene:P1") must generate AFTER that frame exists. Generate in
+// dependency order — independent scenes concurrently, dependents in later waves.
 export function generateAllSceneImages(projectId) {
   const project = loadProject(projectId);
-  const todo = project.scenes.filter((s) => ['pending', 'failed'].includes(s.image.status));
-  runPool(todo.map((s) => () => generateSceneImage(projectId, s.id)));
-  return todo.length;
+  const todoIds = project.scenes.filter((s) => ['pending', 'failed'].includes(s.image.status)).map((s) => s.id);
+  runSceneWaves(projectId, todoIds); // async orchestrator, not awaited
+  return todoIds.length;
+}
+
+function sceneDeps(scene) {
+  return (scene.fileMap || [])
+    .filter((m) => typeof m.refId === 'string' && m.refId.startsWith('scene:'))
+    .map((m) => m.refId.slice('scene:'.length));
+}
+
+async function runSceneWaves(projectId, todoIds) {
+  let remaining = [...todoIds];
+  for (let guard = 0; remaining.length && guard < todoIds.length + 2; guard++) {
+    const project = loadProject(projectId);
+    const hasFrame = (id) => !!project.scenes.find((s) => s.id === id)?.image?.path;
+    // ready = no in-batch dependency still lacking a generated frame
+    let ready = remaining.filter((id) => {
+      const s = project.scenes.find((x) => x.id === id);
+      return sceneDeps(s).every((dep) => !remaining.includes(dep) || hasFrame(dep));
+    });
+    if (!ready.length) ready = [...remaining]; // cycle / unresolvable → attempt all, surface errors
+    // Await the wave so its frames exist before dependents run.
+    await runPool(ready.map((id) => () => generateSceneImage(projectId, id)));
+    remaining = remaining.filter((id) => !ready.includes(id));
+  }
 }
 
 // --- scenes: videos ---

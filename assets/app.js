@@ -146,7 +146,8 @@ function refOptions(current, { scenes = false, excludeSceneId = null, onlyApprov
     for (const s of p.scenes) {
       if (s.id === excludeSceneId) continue;
       if (onlyApprovedScenes && s.image.status !== 'approved') continue;
-      html += opt(`scene:${s.id}`, `${s.id} frame`, current === `scene:${s.id}`);
+      const note = s.image.status === 'approved' ? '' : s.image.path ? ' (draft)' : ' (not generated yet)';
+      html += opt(`scene:${s.id}`, `${s.id} frame${note}`, current === `scene:${s.id}`);
     }
   }
   return html;
@@ -245,6 +246,7 @@ function renderScenes() {
         <button data-act="parse-scenes">Parse into scenes</button>
         <span class="muted">${p.scenes.length} scene${p.scenes.length === 1 ? '' : 's'} parsed</span>
       </div>
+      <div class="notice">Scene consistency: in a scene's reference mapping, point a file slot at an earlier scene's frame (e.g. "P1 frame"). Use "+ file slot" if the prompt doesn't already cite a file for it. "Generate all images" runs referenced scenes first, then the scenes that depend on them, so the chain resolves automatically.</div>
     </div>
 
     ${p.scenes.length ? `
@@ -272,7 +274,7 @@ function renderSceneCard(s) {
       ${s.fileMap.length ? s.fileMap.sort((a, b) => a.file - b.file).map((slot) => `
         <div class="row" style="margin:2px 0">
           <span class="muted" style="width:52px">file ${slot.file}</span>
-          <select data-map-scene="${esc(s.id)}" data-file="${slot.file}" style="flex:1">${refOptions(slot.refId, { scenes: true, excludeSceneId: s.id, onlyApprovedScenes: true })}</select>
+          <select data-map-scene="${esc(s.id)}" data-file="${slot.file}" style="flex:1">${refOptions(slot.refId, { scenes: true, excludeSceneId: s.id })}</select>
         </div>`).join('') : '<div class="muted">No "file N" references in this prompt.</div>'}
       <div class="row" style="margin-top:4px"><button class="secondary small" data-act="add-slot" data-id="${esc(s.id)}">+ file slot</button></div>
       <details class="raw"><summary>Prompt body</summary><textarea data-scene-prompt="${esc(s.id)}" rows="6">${esc(s.prompt_body)}</textarea></details>
