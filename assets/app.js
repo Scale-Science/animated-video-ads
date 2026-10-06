@@ -308,6 +308,7 @@ function renderVideos() {
         ${missing.length ? `<span class="err">Missing motion for: ${missing.join(', ')}</span>` : '<span class="muted">every ready scene has a motion prompt</span>'}
       </div>
       <div class="notice">A scene's video can be generated as soon as its own image exists — you don't have to wait for every image. "Generate all videos" runs every ready scene (image + motion) and skips the rest.${noImage.length ? ` No image yet: ${noImage.join(', ')}.` : ''}</div>
+      <div class="notice">End frame: add a line <code>Last frame: P4 frame</code> (or a library label) to a motion prompt and parsing sets that scene's last frame for you. You can also set it per scene with the "last frame" dropdown below.</div>
     </div>
     <div class="panel row">
       <div><label style="margin:0 8px 0 0;display:inline">Default duration (s)</label><input id="set-dur" type="number" min="3" max="15" value="${esc(p.settings.defaultDuration)}" style="width:70px;display:inline-block"/></div>
@@ -534,16 +535,28 @@ function bindEvents(app) {
       // videos
       'parse-motion': () => {
         const raw = $('#motion-raw') ? $('#motion-raw').value : state.project.motionRaw;
-        const motions = parseMotion(raw);
+        const sceneIds = state.project.scenes.map((s) => s.id);
+        const motions = parseMotion(raw, state.project.references, sceneIds);
         if (!motions.length) return toast('No motion prompts found — check the **P1 …** headers.');
         const byId = new Map(motions.map((m) => [m.id, m]));
-        let matched = 0; const unmatched = [];
+        let matched = 0; let lastSet = 0; const unmatched = []; const unresolved = [];
         state.project = store.updateProject(pid, (p) => {
           p.motionRaw = raw;
-          for (const s of p.scenes) { const m = byId.get(s.id); if (m) { s.video.motion_prompt = m.motion; matched++; } }
+          for (const s of p.scenes) {
+            const m = byId.get(s.id);
+            if (!m) continue;
+            s.video.motion_prompt = m.motion;
+            matched++;
+            if (m.lastFrameRefId) { s.video.lastFrameRefId = m.lastFrameRefId; lastSet++; }
+            else if (m.lastFrameToken) unresolved.push(`${s.id}→"${m.lastFrameToken}"`);
+          }
           for (const m of motions) if (!p.scenes.some((s) => s.id === m.id)) unmatched.push(m.id);
         });
-        toast(`Matched ${matched} motion prompt${matched === 1 ? '' : 's'}.${unmatched.length ? ' No scene for: ' + unmatched.join(', ') : ''}`);
+        let msg = `Matched ${matched} motion prompt${matched === 1 ? '' : 's'}.`;
+        if (lastSet) msg += ` Set ${lastSet} end frame${lastSet === 1 ? '' : 's'}.`;
+        if (unresolved.length) msg += ` Couldn't resolve last frame for: ${unresolved.join(', ')}.`;
+        if (unmatched.length) msg += ` No scene for: ${unmatched.join(', ')}.`;
+        toast(msg);
         render();
       },
       'gen-videos': () => {

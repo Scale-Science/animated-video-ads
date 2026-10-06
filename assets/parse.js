@@ -121,11 +121,55 @@ export function parseScenes(text, references = []) {
   });
 }
 
-// Motion prompts: same headers, body is the motion prompt. Carry any dialogue in
-// the header meta so the operator can see the lip-sync line.
-export function parseMotion(text) {
+// Pull a "Last frame: X" (or "Files: last = X") directive out of a motion body.
+// Returns the raw token (e.g. "P4 frame" or "gum piece") or null.
+function extractLastFrameToken(body) {
+  let m = body.match(/\bLast\s*frame\s*:\s*([^\n]+)/i);
+  if (!m) m = body.match(/\bFiles?\s*:\s*last\s*=\s*([^\n,;]+)/i);
+  if (!m) return null;
+  return m[1].split(/[,;]/)[0].replace(/^[\s+•\-–]+/, '').replace(/[.\s]+$/, '').trim() || null;
+}
+
+// Remove the directive line so the text sent to the video model stays clean.
+function stripLastFrameLine(body) {
+  return body
+    .replace(/^[ \t]*Last\s*frame\s*:[^\n]*\n?/gim, '')
+    .replace(/^[ \t]*Files?\s*:\s*last\s*=[^\n]*\n?/gim, '')
+    .trim();
+}
+
+// Resolve a token to a refId: "scene:P#" for a scene frame, a library ref id for
+// a label match, or null if it doesn't resolve.
+function tokenToRefId(token, references, sceneIds) {
+  if (!token) return null;
+  const p = token.match(/\bP(\d+)\b/i);
+  if (p && (/\bframe\b/i.test(token) || /^P\d+$/i.test(token))) {
+    const sid = `P${p[1]}`;
+    return sceneIds.includes(sid) ? `scene:${sid}` : null;
+  }
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const k = norm(token);
+  if (!k) return null;
+  const hit = references.find((r) => norm(r.label) === k)
+    || references.find((r) => { const lk = norm(r.label); return lk && (k.includes(lk) || lk.includes(k)); });
+  return hit ? hit.id : null;
+}
+
+// Motion prompts: same headers, body is the motion prompt. A "Last frame: …"
+// directive (optional) sets the scene's end frame; it is stripped from the
+// motion text. Pass references + sceneIds so a label or "P# frame" resolves.
+export function parseMotion(text, references = [], sceneIds = []) {
   return splitByHeaders(text).map((h) => {
     const { speaker, dialogue } = parseMeta(h.meta);
-    return { id: h.id, title: h.title, speaker, dialogue, motion: h.body };
+    const lastFrameToken = extractLastFrameToken(h.body);
+    return {
+      id: h.id,
+      title: h.title,
+      speaker,
+      dialogue,
+      motion: stripLastFrameLine(h.body),
+      lastFrameToken,
+      lastFrameRefId: tokenToRefId(lastFrameToken, references, sceneIds),
+    };
   });
 }
