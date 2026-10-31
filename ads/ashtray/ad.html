@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,500;1,9..144,700&family=Inter:wght@500;700;800&display=block" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1080px; height:1350px; overflow:hidden; background:#1a120c; }
+  .ad { position:relative; width:1080px; height:1350px; overflow:hidden; }
+  .photo { position:absolute; left:0; top:-70px; width:1080px; height:1440px; object-fit:cover;
+           filter: saturate(1.08) contrast(1.06); }
+  .shade { position:absolute; inset:0;
+    background:
+      linear-gradient(180deg, rgba(20,12,6,.55) 0%, rgba(20,12,6,0) 18%),
+      linear-gradient(180deg, rgba(20,12,6,0) 52%, rgba(20,12,6,.78) 68%, rgba(16,10,5,.96) 100%); }
+  .top { position:absolute; top:44px; left:56px; right:56px; display:flex; justify-content:space-between; align-items:center;
+         font-family:Inter; font-weight:800; font-size:22px; letter-spacing:.22em; color:#f3ead7; text-transform:uppercase; }
+  .tag { background:#d9a92b; color:#1a120c; padding:12px 20px; border-radius:999px; letter-spacing:.14em; }
+  .copy { position:absolute; left:56px; right:56px; bottom:60px; color:#f3ead7; }
+  .kicker { font-family:Inter; font-weight:700; font-size:22px; letter-spacing:.24em; text-transform:uppercase; color:#c9b98a; margin-bottom:18px; }
+  h1 { font-family:Fraunces; font-weight:800; font-size:104px; line-height:.95; letter-spacing:-.02em; }
+  h1 em { font-style:italic; font-weight:700; color:#d9a92b; }
+  .feats { display:flex; gap:14px; margin-top:34px; flex-wrap:wrap; }
+  .feat { font-family:Inter; font-weight:700; font-size:22px; color:#f3ead7; border:2px solid rgba(243,234,215,.55);
+          padding:12px 20px; border-radius:999px; }
+  .cta { margin-top:38px; display:flex; align-items:center; justify-content:space-between; }
+  .btn { font-family:Inter; font-weight:800; font-size:28px; letter-spacing:.06em; text-transform:uppercase;
+         background:#f3ead7; color:#1a120c; padding:22px 38px; border-radius:14px; }
+  .note { font-family:Fraunces; font-style:italic; font-weight:500; font-size:30px; color:#c9b98a; }
+</style></head>
+<body><div class="ad">
+  <img class="photo" src="photo.jpg">
+  <div class="shade"></div>
+  <div class="top"><span>For Sale</span><span class="tag">Only One</span></div>
+  <div class="copy">
+    <div class="kicker">Glazed ceramic ashtray</div>
+    <h1>Ash with<br><em>some taste.</em></h1>
+    <div class="feats">
+      <span class="feat">Scalloped glazed rim</span>
+      <span class="feat">Center snuffer cup</span>
+      <span class="feat">Heavy &amp; solid</span>
+    </div>
+    <div class="cta">
+      <span class="btn">DM to claim it &rarr;</span>
+      <span class="note">first come, first served</span>
+    </div>
+  </div>
+</div></body></html>
